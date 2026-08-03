@@ -66,7 +66,8 @@ test("directional waves give each deck a single crossfader direction", () => {
 });
 
 test("hand poses have distinct control modes", () => {
-  assert.equal(handGesture(points(), Infinity), "fist");
+  assert.equal(handGesture(points(), Infinity), "neutral");
+  assert.equal(handGesture(points(), 0.3), "neutral");
   assert.equal(handGesture(points({ extended: [0, 1] }), Infinity), "pitch");
   assert.equal(handGesture(points({ extended: [0] }), 0.3), "pinch");
   assert.equal(handGesture(points({ extended: [0] }), Infinity), "effect");

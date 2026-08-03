@@ -39,9 +39,8 @@ export function handGesture(points, pinchRatio = Infinity) {
   const peace = fingers[0] && fingers[1] && !fingers[2] && !fingers[3];
   const indexOnly = fingers[0] && !fingers[1] && !fingers[2] && !fingers[3];
   if (peace) return "pitch";
-  if (pinchRatio < 0.5 && extended <= 2) return "pinch";
+  if (pinchRatio < 0.5 && extended >= 1 && extended <= 2) return "pinch";
   if (indexOnly) return "effect";
   if (extended === 4) return "crossfader";
-  if (extended === 0) return "fist";
   return "neutral";
 }

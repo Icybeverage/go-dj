@@ -42,12 +42,6 @@ export const GESTURE_OPTIONS = [
     detail: "Echo mix",
   },
   {
-    id: "sync",
-    label: "FIST CROSSFADE",
-    pose: "Closed fist",
-    detail: "A → B 100% · B → A 0%",
-  },
-  {
     id: "crossfader",
     label: "CROSSFADER",
     pose: "Wave right / left",

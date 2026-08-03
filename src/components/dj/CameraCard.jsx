@@ -451,25 +451,6 @@ export function CameraCard() {
                   handSide,
                   deck,
                 });
-              } else if (mode === "fist") {
-                if (state.mode !== "fist") {
-                  state.mode = mode;
-                  if (!gestureOptionsRef.current.sync) return;
-                  const value = deck === 1 ? 1 : 0;
-                  crossfader.current.value = value;
-                  setActiveGesture("crossfader");
-                  setGestureStatus(
-                    `DECK ${label} · FIST · crossfader ${value * 100}%`,
-                  );
-                  emitDjEvent({
-                    type: "crossfader",
-                    value,
-                    handSide,
-                    deck,
-                    gesture: "fist",
-                    direction: deck === 1 ? "RIGHT" : "LEFT",
-                  });
-                }
               } else if (mode === "neutral" || mode === "crossfader") {
                 state.mode = mode;
               }
