@@ -93,6 +93,13 @@ claims Convex commands and sends them through the Go DJ! Mixxx controller
 mapping. See [`mixxx-bridge/README.md`](mixxx-bridge/README.md) for the native
 setup and the dry-run path for VMs without ALSA MIDI.
 
+## Livestreaming boundary
+
+Livestreaming compatibility and the recommended encoder bridge are documented
+in [`docs/livestreaming.md`](docs/livestreaming.md). Convex can coordinate
+session and broadcast state, while Mixxx plus OBS/FFmpeg handles the encoded
+audio/video stream. Stream keys require authenticated, server-side handling.
+
 ## Android Mixxx target
 
 The Android deliverable is built from the pinned upstream Mixxx source in
