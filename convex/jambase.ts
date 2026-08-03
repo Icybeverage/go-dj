@@ -24,7 +24,7 @@ function dayLabel(date: string | undefined) {
 
 export const refreshOutsideLands = internalAction({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{ count: number; removed: number; syncedAt: number }> => {
     const edgeUrl = process.env.JAMBASE_EDGE_URL || DEFAULT_EDGE_URL;
     const response = await fetch(
       `${edgeUrl}?name=Outside%20Lands&eventDateFrom=2026-08-07&eventDateTo=2026-08-09&perPage=100`,

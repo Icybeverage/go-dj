@@ -3,20 +3,27 @@ import {
   normalizeMixxxControl,
 } from "../../features/dj/mixxx.js";
 
-export function createCommandQueue(enqueueMutation) {
+function requestId() {
+  return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+}
+
+export function createCommandQueue(enqueueMutation, options = {}) {
   return async function enqueue(command, args = {}) {
     try {
-      if (args?.mixxx?.action === "loadTrackByPath") return true;
       const mixxx = normalizeMixxxControl(args.mixxx);
       const payload = mixxxCommand(command, {
         ...args,
         ...(mixxx ? { mixxx } : {}),
       });
-      await enqueueMutation({
+      const request = {
         command,
         protocol: payload.protocol,
         argsJson: JSON.stringify(payload),
-      });
+        ...(options.sessionKey ? { sessionKey: options.sessionKey } : {}),
+        ...(options.source ? { source: options.source } : {}),
+        requestId: requestId(),
+      };
+      await enqueueMutation(request);
       return true;
     } catch {
       return false;

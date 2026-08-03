@@ -1,28 +1,29 @@
 # Go DJ!
 
-Go DJ! is a mobile-first two-deck DJ interface with camera gestures, a
-Convex-backed command queue, and a native Mixxx bridge. The repository exists
-to make the integration boundary explicit: JamBase supplies festival metadata,
-Supabase keeps the JamBase API key server-side and stores authorized audio,
-Convex owns the catalog and command state, and Mixxx remains the native audio
-engine.
+Go DJ! is a universal two-deck DJ control surface with a performance camera,
+gesture controls, a Convex-backed session/command plane, and an open-source
+Mixxx bridge. Catalog providers are replaceable: Supabase keeps provider keys
+server-side and stores authorized audio, Convex owns live session state, and
+Mixxx remains the native audio engine.
 
 ## Data flow
 
 ```text
-JamBase Data API v3
+Any catalog source (JamBase is optional)
         │  server-side Bearer key
         ▼
 Supabase Edge Function: jambase-outside-lands
         │  normalized lineup snapshot
         ▼
 Convex action + 12-hour cron
-        ├── festivalArtists / festivalSnapshots
+        ├── djSessions / djDecks / gestureEvents
+        ├── catalogs / catalogItems
+        ├── festivalArtists / festivalSnapshots (JamBase view)
         ├── tracks (verified playable files + BPM)
         └── mixxxCommands (canonical control payloads)
                 │
                 ▼
-        Go DJ! web UI → local relay → Mixxx MIDI/controller mapping
+        Go DJ! web UI or Android APK → local relay → Mixxx MIDI/controller mapping
 ```
 
 ## What JamBase does—and does not do
@@ -43,8 +44,9 @@ loaded into the player.
 
 - `src/` — Go DJ web dashboard, browser audio engine, MediaPipe controls, and
   Convex client.
-- `convex/` — schema, track catalog, festival catalog, JamBase refresh action,
-  Mixxx command queue, and the scheduled refresh.
+- `convex/` — universal sessions, deck/mixer state, gesture telemetry,
+  catalog APIs, track catalog, JamBase refresh action, Mixxx command queue, and
+  the scheduled refresh.
 - `supabase/functions/jambase-outside-lands/` — read-only JamBase proxy. The
   secret is read from Supabase `jambase`; no API key is committed or sent to
   the frontend.
@@ -53,6 +55,7 @@ loaded into the player.
 - `scripts/sync-outsidelands-live.mjs` — one-shot live sync for development or
   an operator-run refresh.
 - `test/` — control mapping and protocol tests.
+- `mobile/` — Capacitor Android control-surface build instructions.
 
 ## Local development
 
@@ -84,6 +87,14 @@ commands, but it cannot call Mixxx's native `engine` object. The local relay
 claims Convex commands and sends them through the Go DJ! Mixxx controller
 mapping. See [`mixxx-bridge/README.md`](mixxx-bridge/README.md) for the native
 setup and the dry-run path for VMs without ALSA MIDI.
+
+## Android shell
+
+The Android app bundles the performance camera and gesture/control surface as a
+Capacitor APK. It uses the same Convex session key and command protocol as the
+web dashboard. The APK is intentionally a remote control for a desktop or
+Linux Mixxx engine; see [`mobile/README.md`](mobile/README.md) for the build and
+pairing boundary.
 
 ## Attribution
 

@@ -7,10 +7,26 @@
 | Festival lineup, dates, billing, artist IDs | JamBase Data API | Live event metadata |
 | API-key protection and normalized HTTP endpoint | Supabase Edge Function | The browser never receives the JamBase key |
 | Lineup cache and refresh history | Convex `festivalArtists` and `festivalSnapshots` | Reactive UI data and auditable snapshots |
+| Universal DJ session state | Convex `djSessions`, `djDecks`, and `gestureEvents` | Realtime cross-device control surface state |
+| Generic provider catalogs | Convex `catalogs` and `catalogItems` | JamBase, playlists, and future providers share one model |
 | Playable audio metadata | Convex `tracks` | BPM, file path, source, and future analysis fields |
 | Audio bytes | Supabase Storage | Public playback URLs for files we are licensed to use |
 | DJ control intent | Convex `mixxxCommands` | Durable command queue between browser and native sidecar |
 | Audio engine | Mixxx | Native playback, effects, sync, and mixer controls |
+
+## Session and command flow
+
+Each browser or Android device creates or joins a `sessionKey`. Convex stores
+the canonical mixer/deck state and appends every control intent to
+`mixxxCommands`. The local relay claims those commands and delivers the
+`mixxx-command-v1` payload to Mixxx's native mapping. Browser audio remains a
+local preview; the native Mixxx process is the authoritative audio engine when
+the bridge is connected.
+
+The current session key is a development pairing mechanism, not user
+authentication. Public distribution should replace it with an authenticated
+invite or an OIDC-backed Convex identity before allowing arbitrary remote
+control.
 
 ## JamBase refresh
 

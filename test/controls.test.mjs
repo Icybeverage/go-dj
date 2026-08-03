@@ -91,20 +91,24 @@ test("command payloads carry canonical Mixxx control names", () => {
   assert.equal(payload.command, "play");
 });
 
-test("browser-only track paths never enter the native Mixxx queue", async () => {
+test("track load intents enter Convex while the native bridge can defer path loading", async () => {
   const calls = [];
-  const enqueue = createCommandQueue(async (args) => calls.push(args));
+  const enqueue = createCommandQueue(async (args) => calls.push(args), {
+    sessionKey: "test-session",
+    source: "test",
+  });
   assert.equal(
     await enqueue("loadTrack", {
       mixxx: { action: "loadTrackByPath", path: "preloaded.mp3" },
     }),
     true,
   );
-  assert.equal(calls.length, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].sessionKey, "test-session");
 
   await enqueue("play", {
     mixxx: { group: "[Channel1]", control: "play", value: 1 },
   });
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].protocol, MIXXX_COMMAND_PROTOCOL);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].protocol, MIXXX_COMMAND_PROTOCOL);
 });

@@ -16,6 +16,21 @@ import { api } from "../convexApi";
 import { createCommandQueue } from "../services/convex/commands";
 
 const TUTORIAL_STORAGE_KEY = "go-dj-tutorial-complete";
+const SESSION_STORAGE_KEY = "go-dj-session-key";
+
+function getSessionKey() {
+  try {
+    const current = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (current) return current;
+    const next =
+      globalThis.crypto?.randomUUID?.() ||
+      `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    window.localStorage.setItem(SESSION_STORAGE_KEY, next);
+    return next;
+  } catch {
+    return `session-${Date.now()}`;
+  }
+}
 
 export function App() {
   const [showLanding, setShowLanding] = useState(() => {
@@ -28,7 +43,9 @@ export function App() {
   const [decks, setDecks] = useState(preloadedSongs);
   const [autoPlaySignals, setAutoPlaySignals] = useState([0, 0]);
   const [syncStates, setSyncStates] = useState([false, false]);
+  const [sessionKey] = useState(getSessionKey);
   const remoteTracks = useQuery(api.tracks.search, { limit: 100 });
+  const sessionState = useQuery(api.sessions.state, { sessionKey });
   const remoteFestivalArtists = useQuery(api.festivals.listArtists, {
     festival: OUTSIDE_LANDS_FESTIVAL,
     limit: 200,
@@ -55,11 +72,20 @@ export function App() {
   const libraryArtists = remoteFestivalArtists?.length
     ? remoteFestivalArtists
     : outsideLandsArtists;
-  const enqueueMutation = useMutation(api.mixxx.enqueue);
+  const ensureSession = useMutation(api.sessions.ensure);
+  const enqueueMutation = useMutation(api.sessions.dispatch);
   const enqueue = useMemo(
-    () => createCommandQueue(enqueueMutation),
-    [enqueueMutation],
+    () =>
+      createCommandQueue(enqueueMutation, {
+        sessionKey,
+        source: "web-dashboard",
+      }),
+    [enqueueMutation, sessionKey],
   );
+
+  useEffect(() => {
+    void ensureSession({ sessionKey, displayName: "Go DJ! web controller" });
+  }, [ensureSession, sessionKey]);
 
   const enterDashboard = useCallback(() => {
     try {
@@ -81,6 +107,7 @@ export function App() {
       );
       void enqueue("loadTrack", {
         deck: index + 1,
+        trackId: song._id,
         source: song.source || "preloaded",
         path: song.file,
         artist: song.artist,
@@ -193,7 +220,9 @@ export function App() {
               <span className="eyebrow">CONTROL SURFACE</span>
               <h2 id="player-title">Two-deck player</h2>
             </div>
-            <span className="player-meta">A / B · KEYLOCK</span>
+            <span className="player-meta">
+              A / B · KEYLOCK · {sessionState ? "SESSION READY" : "CONNECTING"}
+            </span>
           </div>
           <div className="deck-grid">
             <Deck
