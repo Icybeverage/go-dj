@@ -56,6 +56,19 @@ diff --git a/src/qml/qmlapplication.cpp b/src/qml/qmlapplication.cpp
 +        }
          __android_log_print(ANDROID_LOG_VERBOSE, "mixxx", "ADPF session ready");
      }
+diff --git a/src/main.cpp b/src/main.cpp
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -330,4 +330,9 @@
+     // When the last window is closed, terminate the Qt event loop.
++#ifdef Q_OS_ANDROID
++    // Android may temporarily lose its window while the activity sleeps.
++    app.setQuitOnLastWindowClosed(false);
++#else
+     QObject::connect(&app, &MixxxApplication::lastWindowClosed, &app, &MixxxApplication::quit);
++#endif
+
+     int exitCode = runMixxx(&app, args);
 diff --git a/res/qml/main.qml b/res/qml/main.qml
 index a84e747c93..e005db613f 100644
 --- a/res/qml/main.qml

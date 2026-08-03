@@ -55,6 +55,13 @@ and shows the mirrored Qt Multimedia preview after the user taps `ALLOW`.
 The patch resolves Mixxx's Android 15-only performance-hint preference call at
 runtime, so an API 35-targeted build can still launch on API 34 devices.
 
+The Android surface stores its Convex session key in Qt `Settings`, refreshes
+the session periodically, and refreshes it when the app returns from sleep.
+The camera is released while the app is backgrounded so emulator camera
+providers do not hold stale resources across resume. Android also disables
+quit-on-last-window-closed; a temporary window loss now suspends the activity
+instead of terminating the Mixxx event loop.
+
 ## Checks and build
 
 ```sh

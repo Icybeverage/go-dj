@@ -16,7 +16,7 @@ Item {
     property string convexUrl: "https://watchful-herring-241.convex.cloud"
     property bool expanded: false
     property int handoffSourceDeck: 0
-    property string sessionKey: "android-mixxx-" + Date.now() + "-" + Math.random().toString(36).slice(2)
+    property string sessionKey: ""
     property real surfaceScale: 1.0
     property string recordingError: ""
 
@@ -24,6 +24,21 @@ Item {
     scale: surfaceScale
     width: expanded ? 500 : 360
     z: 1000
+
+    Settings {
+        id: appSettings
+
+        category: "GoDj"
+        property string sessionKey: ""
+    }
+
+    function initializeSession() {
+        if (!appSettings.sessionKey) {
+            appSettings.sessionKey = "android-mixxx-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+            appSettings.sync();
+        }
+        root.sessionKey = appSettings.sessionKey;
+    }
 
     Loader {
         id: cameraCapture
@@ -116,6 +131,7 @@ Item {
     }
 
     function ensureConvexSession() {
+        if (!root.sessionKey) return;
         postConvex("/api/native/session", {
             sessionKey: root.sessionKey,
             displayName: "Go DJ! Android Mixxx",
@@ -133,6 +149,7 @@ Item {
     }
 
     function reportCommand(command, args) {
+        if (!root.sessionKey) return;
         postConvex("/api/native/dispatch", {
             sessionKey: root.sessionKey,
             command: command,
@@ -184,7 +201,9 @@ Item {
     }
 
     Component.onCompleted: {
+        root.initializeSession();
         root.ensureConvexSession();
+        sessionKeepAlive.restart();
         // Keep native pitch_adjust independent from transport rate.
         keylockA.value = 1;
         keylockB.value = 1;
@@ -233,6 +252,35 @@ Item {
                 reason: "handoff",
             });
             root.handoffSourceDeck = 0;
+        }
+    }
+
+    Timer {
+        id: sessionKeepAlive
+
+        interval: 4 * 60 * 1000
+        repeat: true
+
+        onTriggered: root.ensureConvexSession()
+    }
+
+    Connections {
+        target: Qt.application
+
+        function onStateChanged() {
+            if (Qt.application.state === Qt.ApplicationActive) {
+                root.ensureConvexSession();
+                sessionKeepAlive.restart();
+                return;
+            }
+
+            // Camera providers are a common source of resume crashes on
+            // Android emulators. Release the camera before the app sleeps;
+            // the user can tap ALLOW again after resume.
+            if (root.cameraEnabled) {
+                root.cameraEnabled = false;
+                if (cameraCapture.item) cameraCapture.item.cameraEnabled = false;
+            }
         }
     }
 
