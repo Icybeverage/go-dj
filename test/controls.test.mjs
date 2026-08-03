@@ -23,15 +23,15 @@ import {
 } from "../src/features/dj/mixxx.js";
 import { createCommandQueue } from "../src/services/convex/commands.js";
 
-function points({ extended = [], thumbUp = false } = {}) {
+function points({ extended = [] } = {}) {
   const landmarks = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.6 }));
   [6, 10, 14, 18].forEach((pip, index) => {
     landmarks[pip].y = 0.4;
     landmarks[[8, 12, 16, 20][index]].y = extended.includes(index) ? 0.2 : 0.58;
   });
   landmarks[0].y = 0.6;
-  landmarks[3].y = thumbUp ? 0.35 : 0.45;
-  landmarks[4].y = thumbUp ? 0.15 : 0.55;
+  landmarks[3].y = 0.45;
+  landmarks[4].y = 0.55;
   return landmarks;
 }
 
@@ -70,7 +70,6 @@ test("directional waves give each deck a single crossfader direction", () => {
 
 test("hand poses have distinct control modes", () => {
   assert.equal(handGesture(points(), Infinity), "fist");
-  assert.equal(handGesture(points({ thumbUp: true }), Infinity), "sync");
   assert.equal(handGesture(points({ extended: [0, 1] }), Infinity), "pitch");
   assert.equal(handGesture(points({ extended: [0] }), 0.3), "pinch");
   assert.equal(handGesture(points({ extended: [0] }), Infinity), "effect");

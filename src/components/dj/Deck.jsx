@@ -503,7 +503,6 @@ export function Deck({
       if (type === "pitch") updatePitch(value, { remote: shouldSend });
       if (type === "effect")
         updateEffectMix(value / 100, { remote: shouldSend });
-      if (type === "syncToggle") updateSync(!syncEnabled, { remote: true });
       if (type === "sync")
         updateSync(true, {
           remote: shouldSend,

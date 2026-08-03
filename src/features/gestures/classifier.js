@@ -51,13 +51,8 @@ export function routeHandsToDecks(hands) {
 export function handGesture(points, pinchRatio = Infinity) {
   const fingers = fingerStates(points);
   const extended = fingers.filter(Boolean).length;
-  const thumbUp =
-    points[4].y < points[3].y - 0.04 &&
-    points[4].y < points[0].y - 0.08 &&
-    extended === 0;
   const peace = fingers[0] && fingers[1] && !fingers[2] && !fingers[3];
   const indexOnly = fingers[0] && !fingers[1] && !fingers[2] && !fingers[3];
-  if (thumbUp) return "sync";
   if (peace) return "pitch";
   if (pinchRatio < 0.5 && extended <= 2) return "pinch";
   if (indexOnly) return "effect";

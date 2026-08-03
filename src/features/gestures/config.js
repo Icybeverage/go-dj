@@ -44,7 +44,7 @@ export const GESTURE_OPTIONS = [
   {
     id: "sync",
     label: "SYNC / NEXT",
-    pose: "Fist / thumb up",
+    pose: "Closed fist",
     detail: "BPM sync · hold for handoff",
   },
   {
@@ -62,7 +62,7 @@ export const defaultGestureOptions = Object.fromEntries(
 
 export function createGestureState() {
   return {
-    last: { pinch: 0, pitch: 0, effect: 0, sync: 0 },
+    last: { pinch: 0, pitch: 0, effect: 0 },
     values: { filter: 0.5, pitch: 0.5, effect: 0 },
     mode: "neutral",
     candidate: "neutral",

@@ -463,17 +463,6 @@ export function CameraCard() {
                     emitDjEvent({ type: "handoffNext", deck });
                   }, 900);
                 }
-              } else if (
-                mode === "sync" &&
-                state.mode !== "sync" &&
-                now - state.last.sync > 900
-              ) {
-                state.last.sync = now;
-                state.mode = mode;
-                if (!gestureOptionsRef.current.sync) return;
-                setActiveGesture("sync");
-                setGestureStatus(`DECK ${label} · Thumbs up · BPM sync`);
-                emitDjEvent({ type: "syncToggle", deck });
               } else if (mode === "neutral" || mode === "crossfader") {
                 clearTimeout(state.fistHoldTimer);
                 state.mode = mode;
