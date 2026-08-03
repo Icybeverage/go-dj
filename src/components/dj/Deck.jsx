@@ -26,7 +26,6 @@ export function Deck({
   number,
   track,
   enqueue,
-  autoPlaySignal,
   syncEnabled,
   syncTargetBpm,
   onSyncChange,
@@ -140,14 +139,6 @@ export function Deck({
       instance.destroy();
     };
   }, [number, track?.url]);
-
-  useEffect(() => {
-    if (!autoPlaySignal || !track?.url) return undefined;
-    const timer = window.setTimeout(() => {
-      if (!playingRef.current) start();
-    }, 180);
-    return () => window.clearTimeout(timer);
-  }, [autoPlaySignal, track?.url]);
 
   useEffect(() => {
     if (filterNode.current) {

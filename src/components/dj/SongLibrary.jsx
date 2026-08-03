@@ -107,7 +107,7 @@ export function SongLibrary({
                 <div className="song-table-head" role="row">
                   <span role="columnheader">TRACK</span>
                   <span role="columnheader">BPM</span>
-                  <span role="columnheader">LOAD + PLAY</span>
+                  <span role="columnheader">LOAD</span>
                 </div>
                 {visibleSongs.map((song, index) => (
                   <div
@@ -139,17 +139,17 @@ export function SongLibrary({
                         className="load-button deck-a-button"
                         type="button"
                         onClick={() => onLoad(0, song)}
-                        aria-label={`Load and play ${song.title} on Deck A`}
+                        aria-label={`Load ${song.title} on Deck A`}
                       >
-                        <Icon name="play" size={12} /> A
+                        <Icon name="music" size={12} /> LOAD A
                       </button>
                       <button
                         className="load-button deck-b-button"
                         type="button"
                         onClick={() => onLoad(1, song)}
-                        aria-label={`Load and play ${song.title} on Deck B`}
+                        aria-label={`Load ${song.title} on Deck B`}
                       >
-                        <Icon name="play" size={12} /> B
+                        <Icon name="music" size={12} /> LOAD B
                       </button>
                     </div>
                   </div>

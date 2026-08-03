@@ -40,7 +40,6 @@ export function App() {
     }
   });
   const [decks, setDecks] = useState(preloadedSongs);
-  const [autoPlaySignals, setAutoPlaySignals] = useState([0, 0]);
   const [syncStates, setSyncStates] = useState([false, false]);
   const [sessionKey] = useState(getSessionKey);
   const remoteTracks = useQuery(api.tracks.search, { limit: 100, sessionKey });
@@ -136,18 +135,6 @@ export function App() {
     [enqueue],
   );
 
-  const playSong = useCallback(
-    (index, song) => {
-      loadSong(index, song);
-      setAutoPlaySignals((current) =>
-        current.map((value, deckIndex) =>
-          deckIndex === index ? value + 1 : value,
-        ),
-      );
-    },
-    [loadSong],
-  );
-
   const uploadTrack = useCallback(
     async (file) => {
       if (!file.type.startsWith("audio/")) {
@@ -222,7 +209,6 @@ export function App() {
               number={1}
               track={decks[0]}
               enqueue={enqueue}
-              autoPlaySignal={autoPlaySignals[0]}
               syncEnabled={syncStates[0]}
               syncTargetBpm={syncStates[0] ? decks[1]?.bpm : null}
               onSyncChange={(enabled) => handleSyncChange(1, enabled)}
@@ -232,7 +218,6 @@ export function App() {
               number={2}
               track={decks[1]}
               enqueue={enqueue}
-              autoPlaySignal={autoPlaySignals[1]}
               syncEnabled={syncStates[1]}
               syncTargetBpm={syncStates[1] ? decks[0]?.bpm : null}
               onSyncChange={(enabled) => handleSyncChange(2, enabled)}
@@ -241,7 +226,7 @@ export function App() {
           <SongLibrary
             songs={librarySongs}
             festivalArtists={libraryArtists}
-            onLoad={playSong}
+            onLoad={loadSong}
             onUpload={uploadTrack}
             uploadStatus={uploadStatus}
           />
