@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Target,
+  Upload,
   Volume2,
   Waves,
   Zap,
@@ -43,6 +44,7 @@ export const iconMap = {
   sliders: SlidersHorizontal,
   search: Search,
   target: Target,
+  upload: Upload,
   volume: Volume2,
   chevron: ChevronDown,
 };

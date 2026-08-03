@@ -10,7 +10,8 @@
 | Universal DJ session state | Convex `djSessions`, `djDecks`, and `gestureEvents` | Realtime cross-device control surface state |
 | Generic provider catalogs | Convex `catalogs` and `catalogItems` | JamBase, playlists, and future providers share one model |
 | Playable audio metadata | Convex `tracks` | BPM, file path, source, and future analysis fields |
-| Audio bytes | Supabase Storage | Public playback URLs for files we are licensed to use |
+| Authorized festival audio bytes | Supabase Storage | Public playback URLs for files we are licensed to use |
+| User-uploaded audio bytes | Convex File Storage | Session-scoped uploads from the Go DJ! library |
 | DJ control intent | Convex `mixxxCommands` | Durable command queue between browser and native sidecar |
 | Audio engine | Upstream Mixxx | Native playback, effects, sync, and mixer controls |
 
@@ -68,8 +69,9 @@ requires an authorized file before a track is playable:
 
 1. Obtain an MP3 through ownership, permission, a licensed promo, or a
    redistribution-compatible license.
-2. Upload it to the `outsidelands` bucket.
-3. Register the object in `tracks` with its exact storage path and BPM.
+2. Upload it to the `outsidelands` bucket, or use the library's Convex upload
+   control for a session-scoped personal track.
+3. Register the object in `tracks` with its storage reference and BPM.
 4. Run analysis and attach `mediaAnalyses` when available.
 5. The Go DJ! library exposes load/play buttons only for records with a file
    path and verified playback.

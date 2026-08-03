@@ -44,7 +44,7 @@ export function App() {
   const [autoPlaySignals, setAutoPlaySignals] = useState([0, 0]);
   const [syncStates, setSyncStates] = useState([false, false]);
   const [sessionKey] = useState(getSessionKey);
-  const remoteTracks = useQuery(api.tracks.search, { limit: 100 });
+  const remoteTracks = useQuery(api.tracks.search, { limit: 100, sessionKey });
   const sessionState = useQuery(api.sessions.state, { sessionKey });
   const remoteFestivalArtists = useQuery(api.festivals.listArtists, {
     festival: OUTSIDE_LANDS_FESTIVAL,
@@ -53,20 +53,21 @@ export function App() {
   const librarySongs = useMemo(() => {
     if (!remoteTracks?.length) return songs;
     const normalized = remoteTracks
-      .filter((track) => track.filePath)
       .map((track) => {
-        const filePath = track.filePath;
+        const filePath = track.storageUrl || track.filePath;
+        if (!filePath) return null;
         const file = filePath.startsWith("http")
-          ? decodeURIComponent(filePath.split("/").pop() || filePath)
-          : filePath;
+          ? track.fileName || decodeURIComponent(filePath.split("/").pop() || filePath)
+          : track.fileName || filePath;
         return {
           ...track,
-          file,
+          file: track.storageId ? `convex:${track._id}` : file,
           url: filePath.startsWith("http")
             ? filePath
             : `${SUPABASE_BUCKET}/${encodeURIComponent(filePath)}`,
         };
-      });
+      })
+      .filter(Boolean);
     return normalized.length ? normalized : songs;
   }, [remoteTracks]);
   const libraryArtists = remoteFestivalArtists?.length
@@ -74,6 +75,9 @@ export function App() {
     : outsideLandsArtists;
   const ensureSession = useMutation(api.sessions.ensure);
   const enqueueMutation = useMutation(api.sessions.dispatch);
+  const generateUploadUrl = useMutation(api.tracks.generateUploadUrl);
+  const registerUpload = useMutation(api.tracks.registerUpload);
+  const [uploadStatus, setUploadStatus] = useState("");
   const enqueue = useMemo(
     () =>
       createCommandQueue(enqueueMutation, {
@@ -134,6 +138,42 @@ export function App() {
       );
     },
     [loadSong],
+  );
+
+  const uploadTrack = useCallback(
+    async (file) => {
+      if (!file.type.startsWith("audio/")) {
+        setUploadStatus("Choose an audio file.");
+        return;
+      }
+      setUploadStatus("Uploading…");
+      try {
+        const uploadUrl = await generateUploadUrl({});
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+          },
+          body: file,
+        });
+        if (!response.ok) throw new Error(`Upload failed (${response.status})`);
+        const { storageId } = await response.json();
+        const title = file.name.replace(/\.[^/.]+$/, "") || "Uploaded track";
+        await registerUpload({
+          sessionKey,
+          storageId,
+          title,
+          artist: "Your upload",
+          fileName: file.name,
+          contentType: file.type || "application/octet-stream",
+          sizeBytes: file.size,
+        });
+        setUploadStatus("Uploaded — choose Deck A or B");
+      } catch (error) {
+        setUploadStatus(error instanceof Error ? error.message : "Upload failed");
+      }
+    },
+    [generateUploadUrl, registerUpload, sessionKey],
   );
 
   const handleSyncChange = useCallback((deck, enabled) => {
@@ -248,6 +288,8 @@ export function App() {
             songs={librarySongs}
             festivalArtists={libraryArtists}
             onLoad={playSong}
+            onUpload={uploadTrack}
+            uploadStatus={uploadStatus}
           />
         </section>
       </div>

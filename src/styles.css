@@ -1031,6 +1031,36 @@ p {
   padding: 13px 14px 11px;
   border-bottom: 1px solid var(--line);
 }
+.library-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
+}
+.upload-button {
+  position: relative;
+  min-height: 28px;
+  cursor: pointer;
+}
+.upload-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.upload-status {
+  max-width: 180px;
+  overflow: hidden;
+  color: var(--lime);
+  font-size: 0.5rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .library-head h2 {
   font-size: 0.9rem;
 }

@@ -34,11 +34,13 @@ returns the current lineup with performance dates, billing order, genres,
 headliner status, and JamBase IDs.
 
 JamBase does not provide MP3 downloads. Audio must be supplied through files we
-own, have permission to use, or are licensed to redistribute. Those files are
-uploaded to the `outsidelands` Supabase Storage bucket, then registered in
-Convex `tracks` with their file path, BPM, and optional analysis metadata. A
-lineup artist without an uploaded file is catalog metadata only and cannot be
-loaded into the player.
+own, have permission to use, or are licensed to redistribute. Those files can
+be uploaded to the `outsidelands` Supabase Storage bucket, or uploaded by a
+user through the browser to Convex File Storage. Both paths are registered in
+Convex `tracks` with their storage reference, BPM, and optional analysis
+metadata. User uploads are scoped to the browser's session key; a lineup artist
+without an uploaded file is catalog metadata only and cannot be loaded into
+the player.
 
 ## Repository layout
 

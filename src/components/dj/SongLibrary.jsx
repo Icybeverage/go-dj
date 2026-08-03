@@ -7,7 +7,13 @@ import {
 } from "../ui/scroll-area";
 import { Icon } from "./Icons";
 
-export function SongLibrary({ songs, festivalArtists = [], onLoad }) {
+export function SongLibrary({
+  songs,
+  festivalArtists = [],
+  onLoad,
+  onUpload,
+  uploadStatus = "",
+}) {
   const [query, setQuery] = useState("");
   const [artistQuery, setArtistQuery] = useState("");
   const [selectedFile, setSelectedFile] = useState(songs[0]?.file || "");
@@ -57,9 +63,26 @@ export function SongLibrary({ songs, festivalArtists = [], onLoad }) {
           <span className="eyebrow">PLAYLIST</span>
           <h2 id="library-title">Audio &amp; lineup</h2>
         </div>
-        <span className="track-count">
-          {songs.length} tracks · {festivalArtists.length} artists
-        </span>
+        <div className="library-head-actions">
+          <span className="track-count">
+            {songs.length} tracks · {festivalArtists.length} artists
+          </span>
+          <label className="load-button upload-button">
+            <Icon name="upload" size={12} />
+            <span>Upload track</span>
+            <input
+              type="file"
+              accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void onUpload?.(file);
+                event.target.value = "";
+              }}
+              aria-label="Upload your own audio track"
+            />
+          </label>
+          {uploadStatus && <span className="upload-status">{uploadStatus}</span>}
+        </div>
       </div>
       <div className="library-columns">
         <div className="library-pane">
