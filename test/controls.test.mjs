@@ -11,8 +11,8 @@ import {
 } from "../src/features/dj/math.js";
 import {
   deckForHand,
-  displayHandSide,
   handGesture,
+  normalizeHandedness,
   routeHandsToDecks,
 } from "../src/features/gestures/classifier.js";
 import {
@@ -98,12 +98,12 @@ test("handedness routes left to Deck A and right to Deck B", () => {
   );
 });
 
-test("raw camera handedness maps to the mirrored display side", () => {
-  assert.equal(displayHandSide("Left"), "right");
-  assert.equal(displayHandSide("Right"), "left");
-  assert.equal(displayHandSide("unknown"), "");
-  assert.equal(deckForHand(displayHandSide("Left")), 2);
-  assert.equal(deckForHand(displayHandSide("Right")), 1);
+test("camera handedness maps physical left to Deck A and right to Deck B", () => {
+  assert.equal(normalizeHandedness("Left"), "left");
+  assert.equal(normalizeHandedness("Right"), "right");
+  assert.equal(normalizeHandedness("unknown"), "");
+  assert.equal(deckForHand(normalizeHandedness("Left")), 1);
+  assert.equal(deckForHand(normalizeHandedness("Right")), 2);
 });
 
 test("command payloads carry canonical Mixxx control names", () => {

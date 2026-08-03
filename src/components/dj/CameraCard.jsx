@@ -25,7 +25,7 @@ import {
 } from "../../features/gestures/config";
 import {
   handGesture,
-  displayHandSide,
+  normalizeHandedness,
   routeHandsToDecks,
 } from "../../features/gestures/classifier";
 
@@ -291,7 +291,7 @@ export function CameraCard() {
                   palmY,
                   pinchRatio: pinchDistance / palmSize,
                   visualX: clamp(1 - palmX, 0, 1),
-                  handSide: displayHandSide(handedness),
+                  handSide: normalizeHandedness(handedness),
                   rawMode: handGesture(points, pinchDistance / palmSize),
                 };
               }),

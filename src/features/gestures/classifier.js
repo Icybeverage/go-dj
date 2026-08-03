@@ -13,16 +13,6 @@ export function normalizeHandedness(value) {
   return "";
 }
 
-// MediaPipe reports handedness as if a selfie image were mirrored. The video
-// element is mirrored for the user, but landmark detection runs on the raw
-// camera frame, so swap the model label before routing to the displayed side.
-export function displayHandSide(value) {
-  const side = normalizeHandedness(value);
-  if (side === "left") return "right";
-  if (side === "right") return "left";
-  return "";
-}
-
 export function deckForHand(handSide) {
   const side = normalizeHandedness(handSide);
   if (side === "left") return 1;
