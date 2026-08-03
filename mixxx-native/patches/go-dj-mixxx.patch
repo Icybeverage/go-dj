@@ -59,7 +59,7 @@ diff --git a/src/qml/qmlapplication.cpp b/src/qml/qmlapplication.cpp
 diff --git a/src/main.cpp b/src/main.cpp
 --- a/src/main.cpp
 +++ b/src/main.cpp
-@@ -330,4 +330,9 @@
+@@ -330,4 +330,17 @@
      // When the last window is closed, terminate the Qt event loop.
 +#ifdef Q_OS_ANDROID
 +    // Android may temporarily lose its window while the activity sleeps.
@@ -67,7 +67,15 @@ diff --git a/src/main.cpp b/src/main.cpp
 +#else
      QObject::connect(&app, &MixxxApplication::lastWindowClosed, &app, &MixxxApplication::quit);
 +#endif
-
++#ifdef Q_OS_ANDROID
++    QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {
++        qWarning() << "Go DJ Android: Qt aboutToQuit emitted";
++    });
++    QObject::connect(&app, &MixxxApplication::lastWindowClosed, []() {
++        qWarning() << "Go DJ Android: lastWindowClosed emitted";
++    });
++#endif
+ 
      int exitCode = runMixxx(&app, args);
 diff --git a/res/qml/main.qml b/res/qml/main.qml
 index a84e747c93..e005db613f 100644
