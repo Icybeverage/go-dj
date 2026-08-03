@@ -59,7 +59,16 @@ diff --git a/src/qml/qmlapplication.cpp b/src/qml/qmlapplication.cpp
 diff --git a/src/main.cpp b/src/main.cpp
 --- a/src/main.cpp
 +++ b/src/main.cpp
-@@ -330,4 +330,17 @@
+@@ -66,4 +66,8 @@
+ #ifdef MIXXX_USE_QML
+     QString mainQmlFilePath;
++#ifdef Q_OS_ANDROID
++    bool loadQml = true;
++#else
+     bool loadQml = args.isQml();
++#endif
+     if (!loadQml && args.getDeveloper()) {
+@@ -330,4 +334,17 @@
      // When the last window is closed, terminate the Qt event loop.
 +#ifdef Q_OS_ANDROID
 +    // Android may temporarily lose its window while the activity sleeps.
