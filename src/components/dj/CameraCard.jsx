@@ -12,7 +12,12 @@ import {
   triggerAirhorn,
 } from "../../features/audio/engine";
 import { emitDjEvent } from "../../features/dj/bus";
-import { clamp, pinchControlFromRatio } from "../../features/dj/math";
+import {
+  clamp,
+  crossfaderWaveDirection,
+  crossfaderWaveValue,
+  pinchControlFromRatio,
+} from "../../features/dj/math";
 import {
   createGestureState,
   defaultGestureOptions,
@@ -358,8 +363,13 @@ export function CameraCard() {
             }
 
             const now = timestamp;
-            detectedHands.forEach(({ palmY, pinchRatio, rawMode, deck }) => {
+            detectedHands.forEach(
+              ({ palmY, visualX, pinchRatio, rawMode, deck }) => {
               const state = handStates.current[deck];
+              const previousWaveX = state.waveX;
+              state.waveX = visualX;
+              const waveDelta =
+                previousWaveX === null ? 0 : visualX - previousWaveX;
               if (rawMode !== state.candidate) {
                 state.candidate = rawMode;
                 state.candidateSince = now;
@@ -371,6 +381,16 @@ export function CameraCard() {
               const pinchValue = pinchControlFromRatio(pinchRatio);
               const pitchValue = clamp(1 - palmY, 0, 1);
               const label = deck === 1 ? "A" : "B";
+              if (mode === "crossfader") {
+                const allowedDirection = crossfaderWaveDirection(
+                  deck,
+                  waveDelta,
+                );
+                if (allowedDirection) state.waveAccum += waveDelta;
+                else if (Math.abs(waveDelta) > 0.004) state.waveAccum = 0;
+              } else {
+                state.waveAccum = 0;
+              }
               if (mode !== "fist" && state.mode === "fist")
                 clearTimeout(state.fistHoldTimer);
               if (mode === "pinch") {
@@ -458,36 +478,45 @@ export function CameraCard() {
                 clearTimeout(state.fistHoldTimer);
                 state.mode = mode;
               }
-            });
+              },
+            );
 
-            const openHands = gestureOptionsRef.current.crossfader
+            const waveHands = gestureOptionsRef.current.crossfader
               ? detectedHands.filter(
-                  ({ deck }) => handStates.current[deck].mode === "crossfader",
+                  ({ deck }) =>
+                    handStates.current[deck].mode === "crossfader" &&
+                    Math.abs(handStates.current[deck].waveAccum) > 0.01,
                 )
               : [];
-            if (openHands.length) {
-              // One open palm is the fader hand. Keep the selected hand while
-              // it remains open; when it leaves, the other hand can take over.
+            if (waveHands.length) {
+              // Deck A only accepts a rightward wave; Deck B only accepts a
+              // leftward wave. This keeps both hands from fighting the fader.
               const driver =
-                openHands.find(
+                waveHands.find(
                   ({ deck }) => deck === crossfader.current.driverDeck,
-                ) || openHands[0];
+                ) || waveHands[0];
               crossfader.current.driverDeck = driver.deck;
               if (now - crossfader.current.last > 45) {
                 crossfader.current.last = now;
-                // visualX is already in the mirrored display coordinate space:
-                // left edge = Deck A (0), right edge = Deck B (1).
-                const target = clamp(driver.visualX, 0, 1);
-                crossfader.current.value =
-                  crossfader.current.value * 0.35 + target * 0.65;
+                const state = handStates.current[driver.deck];
+                const delta = state.waveAccum;
+                state.waveAccum = 0;
+                crossfader.current.value = crossfaderWaveValue(
+                  crossfader.current.value,
+                  driver.deck,
+                  delta,
+                );
+                const direction = driver.deck === 1 ? "RIGHT" : "LEFT";
                 setActiveGesture("crossfader");
                 setGestureStatus(
-                  `Open palm sweep · crossfader ${Math.round(crossfader.current.value * 100)}%`,
+                  `DECK ${driver.deck === 1 ? "A" : "B"} · WAVE ${direction} · crossfader ${Math.round(crossfader.current.value * 100)}%`,
                 );
                 emitDjEvent({
                   type: "crossfader",
                   value: crossfader.current.value,
                   deck: driver.deck,
+                  gesture: "wave",
+                  direction,
                 });
               }
             } else {

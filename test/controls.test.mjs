@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   bpmSyncRate,
+  crossfaderWaveDirection,
+  crossfaderWaveValue,
   filterFrequencyFromControl,
   filterControlFromFrequency,
   handoffCrossfaderValue,
@@ -55,6 +57,15 @@ test("pinch maps its compact active range across the full filter control", () =>
   assert.equal(pinchControlFromRatio(0.26), 1);
   assert.equal(pinchControlFromRatio(0.38), 0);
   assert.equal(pinchControlFromRatio(0.32), 0.5);
+});
+
+test("directional waves give each deck a single crossfader direction", () => {
+  assert.equal(crossfaderWaveDirection(1, 0.02), 1);
+  assert.equal(crossfaderWaveDirection(1, -0.02), 0);
+  assert.equal(crossfaderWaveDirection(2, -0.02), -1);
+  assert.equal(crossfaderWaveDirection(2, 0.02), 0);
+  assert.equal(crossfaderWaveValue(0.5, 1, 0.2), 1);
+  assert.equal(crossfaderWaveValue(0.5, 2, -0.2), 0);
 });
 
 test("hand poses have distinct control modes", () => {

@@ -50,8 +50,8 @@ export const GESTURE_OPTIONS = [
   {
     id: "crossfader",
     label: "CROSSFADER",
-    pose: "Two open palms",
-    detail: "A ↔ B constant-power",
+    pose: "Wave right / left",
+    detail: "A → right · B → left · 0–100%",
   },
   { id: "airhorn", label: "AIRHORN", pose: "Head nod", detail: "One-shot cue" },
 ];
@@ -68,5 +68,7 @@ export function createGestureState() {
     candidate: "neutral",
     candidateSince: 0,
     fistHoldTimer: null,
+    waveX: null,
+    waveAccum: 0,
   };
 }

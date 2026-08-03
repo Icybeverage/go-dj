@@ -26,6 +26,19 @@ export function handoffCrossfaderValue(sourceDeck) {
   return Number(sourceDeck) === 1 ? 1 : 0;
 }
 
+export function crossfaderWaveDirection(deck, delta, threshold = 0.004) {
+  const movement = Number(delta);
+  if (!Number.isFinite(movement) || Math.abs(movement) <= threshold) return 0;
+  if (Number(deck) === 1) return movement > 0 ? 1 : 0;
+  if (Number(deck) === 2) return movement < 0 ? -1 : 0;
+  return 0;
+}
+
+export function crossfaderWaveValue(value, deck, delta, sensitivity = 3) {
+  if (!crossfaderWaveDirection(deck, delta)) return clamp(value, 0, 1);
+  return clamp(Number(value) + Number(delta) * sensitivity, 0, 1);
+}
+
 export function filterStrength(mode, frequency) {
   const normalized = clamp((Number(frequency) - 40) / (18000 - 40), 0, 1);
   return mode === "highpass" ? normalized : 1 - normalized;
