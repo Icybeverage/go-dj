@@ -109,6 +109,16 @@ diff --git a/src/qml/qmlapplication.cpp b/src/qml/qmlapplication.cpp
 +        }
          __android_log_print(ANDROID_LOG_VERBOSE, "mixxx", "ADPF session ready");
      }
+@@ -215,6 +216,9 @@ QmlApplication::QmlApplication(
+     m_guiTickTimer.start(std::chrono::milliseconds(16));
+ 
+     m_loadSucceeded = loadQml(m_mainFilePath);
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
++    __android_log_print(ANDROID_LOG_ERROR, "GoDJTrace", "QmlApplication: load result=%d", m_loadSucceeded);
++#endif
+     if (!m_loadSucceeded) {
+         return;
+     }
 diff --git a/src/qml/qmlapplication.h b/src/qml/qmlapplication.h
 --- a/src/qml/qmlapplication.h
 +++ b/src/qml/qmlapplication.h
