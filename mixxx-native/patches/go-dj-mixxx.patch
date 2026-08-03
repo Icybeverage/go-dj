@@ -59,12 +59,42 @@ diff --git a/src/qml/qmlapplication.cpp b/src/qml/qmlapplication.cpp
 --- a/src/qml/qmlapplication.cpp
 +++ b/src/qml/qmlapplication.cpp
 @@ -29,5 +29,6 @@
- #if defined(Q_OS_ANDROID)
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
  #include <android/api-level.h>
  #include <android/log.h>
  #include <android/performance_hint.h>
 +#include <dlfcn.h>
  #endif
+@@ -64,5 +65,5 @@
+           m_pAppEngine(nullptr),
+           m_loadSucceeded(false),
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+           m_perfSession(nullptr),
+ #endif
+@@ -120,6 +121,6 @@
+     if (result != SoundDeviceStatus::Ok) {
+         const int reInt = static_cast<int>(result);
+         qCritical() << "Error setting up sound devices:" << reInt;
+-#ifndef Q_OS_ANDROID
++#if !defined(Q_OS_ANDROID) && !defined(__ANDROID__)
+         exit(reInt);
+ #endif
+@@ -231,5 +232,5 @@
+                 }
+             });
+ 
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+     APerformanceHintManager* manager = APerformanceHint_getManager();
+@@ -348,5 +349,5 @@
+         return false;
+     }
+ 
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+     for (auto* item : m_pAppEngine->rootObjects()) {
 @@ -243,5 +243,12 @@
      }
      else {
