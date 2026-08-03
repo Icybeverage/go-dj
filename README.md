@@ -2,18 +2,14 @@
 
 Go DJ! is a universal two-deck DJ control surface with a performance camera,
 gesture controls, a Convex-backed session/command plane, and an open-source
-Mixxx bridge. Catalog providers are replaceable: Supabase keeps provider keys
-server-side and stores authorized audio, Convex owns live session state, and
-Mixxx remains the native audio engine.
+Mixxx bridge. Catalog providers are replaceable, Convex owns live session
+state, and Mixxx remains the native audio engine.
 
 ## Data flow
 
 ```text
 Any catalog source (JamBase is optional)
-        │  server-side Bearer key
-        ▼
-Supabase Edge Function: jambase-outside-lands
-        │  normalized lineup snapshot
+        │  server-side provider adapter
         ▼
 Convex action + 12-hour cron
         ├── djSessions / djDecks / gestureEvents
@@ -33,8 +29,8 @@ DJ state so each system has a clear job:
 
 | System | Role in Go DJ! | Where to inspect it |
 | --- | --- | --- |
-| JamBase | Supplies Outside Lands event, artist, schedule, billing, genre, and source-link metadata. It is not an audio-download provider. | `supabase/functions/jambase-outside-lands/`, `convex/jambase.ts` |
-| Supabase | Keeps the JamBase bearer key server-side and stores authorized festival audio in the `outsidelands` bucket. | `supabase/functions/`, `src/data/songs.js` |
+| JamBase | Supplies Outside Lands event, artist, schedule, billing, genre, and source-link metadata. It is not an audio-download provider. | `convex/jambase.ts` |
+| Object storage | Provides authorized audio files that are registered in the Go DJ! track catalog. | `src/data/songs.js`, `convex/tracks.ts` |
 | Convex | Owns reactive sessions, deck state, gesture telemetry, catalog snapshots, playable track metadata, user-upload registration, and the canonical Mixxx command queue. | `convex/schema.ts`, `convex/sessions.ts`, `convex/tracks.ts`, `convex/mixxx.ts` |
 | Go DJ! web UI | Reads lineup and playable tracks with Convex queries, sends controls with Convex mutations, and renders the browser audio deck/waveform. | `src/app/App.jsx`, `src/components/dj/Deck.jsx` |
 | Mixxx bridge/APK | Consumes the canonical Convex command payloads and applies them to real Mixxx controls. | `mixxx-bridge/`, `mixxx-native/` |
@@ -43,12 +39,12 @@ The live path is therefore:
 
 ```text
 JamBase event metadata
-  → Supabase Edge Function (secret stays server-side)
+  → server-side provider adapter (secret stays server-side)
   → Convex festival snapshot + artist catalog
   → Go DJ! lineup/library queries
 
 Authorized audio file
-  → Supabase Storage or Convex File Storage
+  → configured object storage or Convex File Storage
   → Convex tracks record (file, BPM, source, session scope)
   → browser deck / real Mixxx bridge
 
@@ -65,15 +61,15 @@ existing Web Audio graph handles filters, pitch/keylock, effects, and levels.
 
 ## What JamBase does—and does not do
 
-JamBase is the live event and artist metadata source. The Supabase function
-queries the Outside Lands event, keeps the API key out of the browser, and
-returns the current lineup with performance dates, billing order, genres,
-headliner status, and JamBase IDs.
+JamBase is the live event and artist metadata source. The server-side provider
+adapter keeps the API key out of the browser and returns the current lineup
+with performance dates, billing order, genres, headliner status, and JamBase
+IDs.
 
 JamBase does not provide MP3 downloads. Audio must be supplied through files we
 own, have permission to use, or are licensed to redistribute. Those files can
-be uploaded to the `outsidelands` Supabase Storage bucket, or uploaded by a
-user through the browser to Convex File Storage. Both paths are registered in
+be uploaded to configured object storage, or uploaded by a user through the
+browser to Convex File Storage. Both paths are registered in
 Convex `tracks` with their storage reference, BPM, and optional analysis
 metadata. User uploads are scoped to the browser's session key; a lineup artist
 without an uploaded file is catalog metadata only and cannot be loaded into
@@ -87,9 +83,6 @@ the player.
 - `convex/` — universal sessions, deck/mixer state, gesture telemetry,
   catalog APIs, track catalog, JamBase refresh action, Mixxx command queue, and
   the scheduled refresh.
-- `supabase/functions/jambase-outside-lands/` — read-only JamBase proxy. The
-  secret is read from Supabase `jambase`; no API key is committed or sent to
-  the frontend.
 - `mixxx-bridge/` — desktop native adapter, Convex command poller, and real
   Mixxx controller mapping files.
 - `third_party/mixxx/` — pinned upstream Mixxx source used by the Android
@@ -119,17 +112,13 @@ need to be committed:
 node scripts/sync-outsidelands-live.mjs
 ```
 
-The Supabase function is deployed with the Supabase CLI. Configure the
-`jambase` secret in the Supabase project before deploying; never put that
-value in Vite environment variables or source control.
-
 ## Native Mixxx boundary
 
-The browser can preview authorized Supabase audio and emit canonical Mixxx
-commands, but it cannot call Mixxx's native `engine` object. The local relay
-claims Convex commands and sends them through the Go DJ! Mixxx controller
-mapping. See [`mixxx-bridge/README.md`](mixxx-bridge/README.md) for the native
-setup and the dry-run path for VMs without ALSA MIDI.
+The browser can preview authorized audio and emit canonical Mixxx commands,
+but it cannot call Mixxx's native `engine` object. The local relay claims
+Convex commands and sends them through the Go DJ! Mixxx controller mapping.
+See [`mixxx-bridge/README.md`](mixxx-bridge/README.md) for the native setup
+and the dry-run path for VMs without ALSA MIDI.
 
 ## Android Mixxx target
 
