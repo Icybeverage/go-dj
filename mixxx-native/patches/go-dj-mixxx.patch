@@ -1,0 +1,67 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 88b78536bc..b4fb8ae944 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2402,6 +2402,9 @@ if(QT6)
+     NAME android.permission.ACCESS_NETWORK_STATE
+     )
+     qt_add_android_permission(mixxx
++    NAME android.permission.CAMERA
++    )
++    qt_add_android_permission(mixxx
+     NAME android.permission.INTERNET
+     )
+     qt_add_android_permission(mixxx
+diff --git a/packaging/android/AndroidManifest.xml b/packaging/android/AndroidManifest.xml
+index c13b9966c6..d58fdaff2f 100644
+--- a/packaging/android/AndroidManifest.xml
++++ b/packaging/android/AndroidManifest.xml
+@@ -7,6 +7,7 @@
+     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"  />
+     <uses-permission android:name="android.permission.INTERNET"  />
+     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
++    <uses-permission android:name="android.permission.CAMERA" />
+     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"  />
+     <uses-permission android:name="android.permission.RECORD_AUDIO"  />
+     <uses-permission android:name="android.permission.USB_PERMISSION"/>
+@@ -69,4 +70,7 @@
+     <uses-feature
+         android:name="android.hardware.usb.host"
+         android:required="true" />
++    <uses-feature
++        android:name="android.hardware.camera"
++        android:required="false" />
+ </manifest>
+diff --git a/res/qml/main.qml b/res/qml/main.qml
+index a84e747c93..e005db613f 100644
+--- a/res/qml/main.qml
++++ b/res/qml/main.qml
+@@ -658,6 +658,12 @@ ApplicationWindow {
+             }
+         }
+     }
++    Skin.GoDjCameraSurface {
++        id: goDjCameraSurface
++
++        x: parent.width - width - 16
++        y: 16
++    }
+     Skin.Settings {
+         id: settingsPopup
+ 
+diff --git a/res/skins/LateNightQML/main.qml b/res/skins/LateNightQML/main.qml
+index c731ee4b27..b2e6b2f9af 100644
+--- a/res/skins/LateNightQML/main.qml
++++ b/res/skins/LateNightQML/main.qml
+@@ -577,4 +577,11 @@ ApplicationWindow {
+         }
+     }
+ 
++    Skin.GoDjCameraSurface {
++        id: goDjCameraSurface
++
++        x: parent.width - width - 16
++        y: 16
++    }
++
+ }

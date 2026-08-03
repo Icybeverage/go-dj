@@ -1,0 +1,3 @@
+[submodule "third_party/mixxx"]
+	path = third_party/mixxx
+	url = https://github.com/mixxxdj/mixxx.git

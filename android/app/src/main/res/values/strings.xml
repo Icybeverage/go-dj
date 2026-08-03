@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Go DJ!</string>
-    <string name="title_activity_main">Go DJ!</string>
-    <string name="package_name">com.godj.app</string>
-    <string name="custom_url_scheme">com.godj.app</string>
-</resources>

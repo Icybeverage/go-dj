@@ -1,0 +1,107 @@
+name: Build Go DJ! Android (upstream Mixxx)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".gitmodules"
+      - "third_party/mixxx"
+      - "mixxx-native/**"
+      - ".github/workflows/android-mixxx.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Mixxx Android arm64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out Go DJ! and pinned Mixxx source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Validate the pinned Mixxx integration
+        run: mixxx-native/validate-source.sh
+
+      - name: Apply the Go DJ! camera/control surface
+        run: mixxx-native/apply-overlay.sh
+
+      - name: Prepare Android signing key
+        run: |
+          keytool \
+            -genkey \
+            -keystore mixxx.keystore \
+            -alias mixxx \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 365 \
+            -keypass mixxxandroid \
+            -storepass mixxxandroid \
+            -dname "CN=${GITHUB_ACTOR}"
+          echo "QT_ANDROID_KEYSTORE_ALIAS=mixxx" >> "${GITHUB_ENV}"
+          echo "QT_ANDROID_KEYSTORE_KEY_PASS=mixxxandroid" >> "${GITHUB_ENV}"
+          echo "QT_ANDROID_KEYSTORE_STORE_PASS=mixxxandroid" >> "${GITHUB_ENV}"
+          echo "QT_ANDROID_KEYSTORE_PATH=${GITHUB_WORKSPACE}/mixxx.keystore" >> "${GITHUB_ENV}"
+
+      - name: Free runner disk space
+        run: |
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          sudo rm -rf /home/packer /opt/az /opt/google /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /opt/hostedtoolcache/go /opt/hostedtoolcache/node
+          sudo rm -rf /opt/hostedtoolcache/PyPy /opt/hostedtoolcache/Python
+          sudo rm -rf /opt/microsoft /opt/pipx /usr/lib/google-cloud-sdk
+          sudo rm -rf /usr/local/julia1.11.7 /usr/local/share/powershell
+          sudo rm -rf /usr/share/dotnet /usr/share/swift /usr/local/share/vcpkg
+
+      - name: Set up the official Mixxx Android build environment
+        run: third_party/mixxx/tools/android_buildenv.sh setup
+        env:
+          BUILDENV_BASEPATH: /home/runner/buildenv
+
+      - name: Create a clean Mixxx build directory
+        run: mkdir -p third_party/mixxx/build
+
+      - name: Configure upstream Mixxx for Android
+        run: >-
+          cmake
+          -DBULK=ON
+          -DQT6=ON
+          -DQML=ON
+          -DHID=ON
+          -DVCPKG_TARGET_TRIPLET=arm64-android
+          -DVCPKG_DEFAULT_HOST_TRIPLET=x64-linux-release
+          -DCMAKE_SYSTEM_NAME=Android
+          -DBUILD_TESTING=OFF
+          -DBUILD_BENCH=OFF
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DBATTERY=ON
+          -DBROADCAST=ON
+          -DDOWNLOAD_MANUAL=ON
+          -DKEYFINDER=ON
+          -DOPUS=ON
+          -DQTKEYCHAIN=ON
+          -DVINYLCONTROL=ON
+          ..
+        working-directory: third_party/mixxx/build
+
+      - name: Build the real Mixxx Android APK
+        run: cmake --build . --config RelWithDebInfo --parallel 2
+        working-directory: third_party/mixxx/build
+
+      - name: Upload Go DJ! Mixxx APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-dj-mixxx-android-arm64
+          if-no-files-found: error
+          path: third_party/mixxx/build/android-build/build/outputs/apk/release/*.apk

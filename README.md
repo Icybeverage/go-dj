@@ -50,12 +50,15 @@ loaded into the player.
 - `supabase/functions/jambase-outside-lands/` — read-only JamBase proxy. The
   secret is read from Supabase `jambase`; no API key is committed or sent to
   the frontend.
-- `mixxx-bridge/` — native adapter, Convex command poller, and real Mixxx
-  controller mapping files.
+- `mixxx-bridge/` — desktop native adapter, Convex command poller, and real
+  Mixxx controller mapping files.
+- `third_party/mixxx/` — pinned upstream Mixxx source used by the Android
+  build; update this gitlink deliberately when upgrading Mixxx.
+- `mixxx-native/` — the reproducible Go DJ! overlay for Mixxx's QML skin,
+  camera permission, and Android build validation.
 - `scripts/sync-outsidelands-live.mjs` — one-shot live sync for development or
   an operator-run refresh.
 - `test/` — control mapping and protocol tests.
-- `mobile/` — Capacitor Android control-surface build instructions.
 
 ## Local development
 
@@ -88,13 +91,29 @@ claims Convex commands and sends them through the Go DJ! Mixxx controller
 mapping. See [`mixxx-bridge/README.md`](mixxx-bridge/README.md) for the native
 setup and the dry-run path for VMs without ALSA MIDI.
 
-## Android shell
+## Android Mixxx target
 
-The Android app bundles the performance camera and gesture/control surface as a
-Capacitor APK. It uses the same Convex session key and command protocol as the
-web dashboard. The APK is intentionally a remote control for a desktop or
-Linux Mixxx engine; see [`mobile/README.md`](mobile/README.md) for the build and
-pairing boundary.
+The Android deliverable is built from the pinned upstream Mixxx source in
+`third_party/mixxx`; it is the Mixxx audio engine and QML application, not a
+web wrapper. `mixxx-native/apply-overlay.sh` applies the reusable Go DJ!
+performance surface to the upstream QML skins. The surface uses real Mixxx
+`ControlProxy` objects for deck play, BPM sync, quick-effect parameters, the
+master crossfader, and reset, so those controls operate on Mixxx's engine.
+
+The surface also embeds a mirrored Qt Multimedia camera preview. Android
+declares camera access as optional hardware and requests access only when the
+user taps `ALLOW`; the surface can be moved and pinched to resize. It is
+festival-agnostic and can sit on top of any Mixxx library or controller.
+
+Run the official source integration checks locally with
+`mixxx-native/validate-source.sh`. The full arm64 APK build is defined in
+`.github/workflows/android-mixxx.yml`; Mixxx's official Android dependency
+bundle is large, so CI is the reproducible build machine. The existing
+Convex session/command plane remains the cross-device backend and the desktop
+relay remains available for remote control. The native surface controls the
+local Mixxx engine directly; embedding a Convex client inside Mixxx itself is
+kept as a separate transport boundary rather than pretending the web SDK is a
+native audio engine.
 
 ## Attribution
 

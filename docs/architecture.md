@@ -12,7 +12,28 @@
 | Playable audio metadata | Convex `tracks` | BPM, file path, source, and future analysis fields |
 | Audio bytes | Supabase Storage | Public playback URLs for files we are licensed to use |
 | DJ control intent | Convex `mixxxCommands` | Durable command queue between browser and native sidecar |
-| Audio engine | Mixxx | Native playback, effects, sync, and mixer controls |
+| Audio engine | Upstream Mixxx | Native playback, effects, sync, and mixer controls |
+
+## Native Android boundary
+
+The website is intentionally Outside Lands-based. The Android target is
+universal: it is a real upstream Mixxx Android build with a small Go DJ!
+overlay, so the same camera/control surface can be reused with any library or
+festival.
+
+`third_party/mixxx` pins the upstream source commit. The overlay in
+`mixxx-native/patches` adds the optional Android camera permission and places
+`GoDjCameraSurface.qml` on both upstream QML entry points. The component uses
+Mixxx `ControlProxy` controls for deck play, `sync_enabled`, quick-effect
+`super1`, and `[Master] crossfader`; the camera preview is a Qt Multimedia
+`Camera`/`CaptureSession`/`VideoOutput` surface with user-controlled activation.
+
+The Convex data model remains universal and owns session state, gesture events,
+and durable command intents. The desktop relay translates those intents into
+Mixxx's native mapping. The Android overlay's local controls write directly to
+Mixxx's engine; a native Convex transport should be added only at the explicit
+pairing boundary, using the same `mixxx-command-v1` contract, rather than
+shipping the browser Convex client inside the audio process.
 
 ## Session and command flow
 

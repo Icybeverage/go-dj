@@ -48,7 +48,6 @@ export function LandingPage({ onEnter }) {
       <div className="landing-shell">
         <header className="landing-header">
           <div className="brand-lockup">
-            <span className="brand-mark">GD</span>
             <span className="landing-brand">Go DJ!</span>
           </div>
           <span className="landing-caption">MOBILE DJ CONTROL</span>

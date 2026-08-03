@@ -206,7 +206,6 @@ export function App() {
     <main className="app-shell">
       <div className="app-header">
         <div className="brand-lockup">
-          <span className="brand-mark">GD</span>
           <h1>Go DJ!</h1>
         </div>
       </div>
