@@ -92,6 +92,15 @@ diff --git a/src/main.cpp b/src/main.cpp
  
  #include "config.h"
  #include "controllers/controllermanager.h"
+@@ -17,7 +17,7 @@
+ #include "coreservices.h"
+ #include "errordialoghandler.h"
+ #include "mixxxapplication.h"
+-#ifdef MIXXX_USE_QML
++#if defined(MIXXX_USE_QML) || defined(Q_OS_ANDROID)
+ #include "mixer/playermanager.h"
+ #include "qml/qmlapplication.h"
+ #include "waveform/guitick.h"
 @@ -39,6 +42,14 @@
  
  namespace {
@@ -118,7 +127,8 @@ diff --git a/src/main.cpp b/src/main.cpp
  
      int exitCode;
      auto pCoreServices = std::make_shared<mixxx::CoreServices>(args, pApp);
- #ifdef MIXXX_USE_QML
+-#ifdef MIXXX_USE_QML
++#if defined(MIXXX_USE_QML) || defined(Q_OS_ANDROID)
      QString mainQmlFilePath;
 -    bool loadQml = args.isQml();
 +    bool loadQml = true;
