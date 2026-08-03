@@ -89,3 +89,33 @@ index c731ee4b27..b2e6b2f9af 100644
 +    }
 +
  }
+
+diff --git a/src/soundio/portaudioenumerator.cpp b/src/soundio/portaudioenumerator.cpp
+--- a/src/soundio/portaudioenumerator.cpp
++++ b/src/soundio/portaudioenumerator.cpp
+@@ -150,18 +150,23 @@ void PortAudioEnumerator::initialize() {
+             }
+         };
+ 
++        // Android 14's emulator audio HAL corrupts the heap in Mixxx's
++        // custom per-device Oboe registration path. Oboe's default route is
++        // stable, so leave device selection to it on API 34 and older.
++        if (android_get_device_api_level() >= 35) {
+         auto inputDevices =
+                 audioManager.callMethod<QJniArray<QJniObject>>("getDevices",
+                         "(I)[Landroid/media/AudioDeviceInfo;",
+                         GET_DEVICES_INPUTS);
+         qDebug() << "audioManager inputDevices:" << inputDevices.size();
+         parse(PaOboe_Direction::Input, inputDevices);
+
+         auto outputDevices =
+                 audioManager.callMethod<QJniArray<QJniObject>>("getDevices",
+                         "(I)[Landroid/media/AudioDeviceInfo;",
+                         GET_DEVICES_OUTPUTS);
+         qDebug() << "audioManager outputDevices:" << outputDevices.size();
+         parse(PaOboe_Direction::Output, outputDevices);
+ 
++        }
+         QJniObject PROPERTY_OUTPUT_FRAMES_PER_BUFFER =
+                 QJniObject::getStaticField<jstring>(
+                         "android/media/AudioManager",
