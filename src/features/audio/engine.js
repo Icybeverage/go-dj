@@ -9,6 +9,9 @@ export const audioEngine = {
   masterVolume: 0.8,
 };
 
+let airhornAudio = null;
+let airhornSource = null;
+
 export function ensureAudioEngine() {
   if (!audioEngine.context) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -50,32 +53,22 @@ export function setMixerMasterVolume(value) {
     audioEngine.master.gain.value = audioEngine.masterVolume;
 }
 
-export function triggerAirhorn() {
+export function preloadAirhorn() {
   const { context, master } = ensureAudioEngine();
+  if (!airhornAudio) {
+    airhornAudio = new Audio("/sounds/airhorn.mp3");
+    airhornAudio.preload = "auto";
+    airhornAudio.crossOrigin = "anonymous";
+    airhornSource = context.createMediaElementSource(airhornAudio);
+    airhornSource.connect(master);
+    airhornAudio.load();
+  }
+}
+
+export function triggerAirhorn() {
+  const { context } = ensureAudioEngine();
   if (context.state === "suspended") context.resume().catch(() => {});
-  const start = context.currentTime + 0.015;
-  const end = start + 0.62;
-  const output = context.createGain();
-  const filter = context.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.setValueAtTime(2300, start);
-  filter.Q.value = 1.2;
-  output.gain.setValueAtTime(0.0001, start);
-  output.gain.exponentialRampToValueAtTime(0.8, start + 0.025);
-  output.gain.exponentialRampToValueAtTime(0.0001, end);
-  filter.connect(output).connect(master);
-  [
-    [560, 430],
-    [840, 640],
-  ].forEach(([from, to], index) => {
-    const oscillator = context.createOscillator();
-    const voice = context.createGain();
-    oscillator.type = index ? "square" : "sawtooth";
-    oscillator.frequency.setValueAtTime(from, start);
-    oscillator.frequency.exponentialRampToValueAtTime(to, end);
-    voice.gain.value = index ? 0.18 : 0.42;
-    oscillator.connect(voice).connect(filter);
-    oscillator.start(start);
-    oscillator.stop(end + 0.03);
-  });
+  preloadAirhorn();
+  airhornAudio.currentTime = 0;
+  airhornAudio.play().catch(() => {});
 }

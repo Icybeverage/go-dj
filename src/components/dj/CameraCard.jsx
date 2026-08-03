@@ -6,9 +6,13 @@ import {
 } from "@mediapipe/tasks-vision";
 import { GestureGrid } from "./GestureGrid";
 import { Icon } from "./Icons";
-import { ensureAudioEngine, triggerAirhorn } from "../../features/audio/engine";
+import {
+  ensureAudioEngine,
+  preloadAirhorn,
+  triggerAirhorn,
+} from "../../features/audio/engine";
 import { emitDjEvent } from "../../features/dj/bus";
-import { clamp } from "../../features/dj/math";
+import { clamp, pinchControlFromRatio } from "../../features/dj/math";
 import {
   createGestureState,
   defaultGestureOptions,
@@ -97,9 +101,8 @@ export function CameraCard() {
       }
       video.current.srcObject = stream;
       await video.current.play().catch(() => {});
-      ensureAudioEngine()
-        .context.resume()
-        .catch(() => {});
+      ensureAudioEngine().context.resume().catch(() => {});
+      preloadAirhorn();
       setActive(true);
     } catch (cause) {
       setError(
@@ -361,7 +364,7 @@ export function CameraCard() {
                 now - state.candidateSince >= 120
                   ? state.candidate
                   : state.mode;
-              const pinchValue = clamp(1 - (pinchRatio - 0.18) / 0.54, 0, 1);
+              const pinchValue = pinchControlFromRatio(pinchRatio);
               const pitchValue = clamp(1 - palmY, 0, 1);
               const label = deck === 1 ? "A" : "B";
               if (mode !== "fist" && state.mode === "fist")
@@ -376,7 +379,7 @@ export function CameraCard() {
                 state.last.pinch = now;
                 setActiveGesture("filter");
                 state.values.filter =
-                  state.values.filter * 0.9 + pinchValue * 0.1;
+                  state.values.filter * 0.72 + pinchValue * 0.28;
                 setGestureStatus(
                   `DECK ${label} · Pinch filter ${Math.round(state.values.filter * 100)}%`,
                 );

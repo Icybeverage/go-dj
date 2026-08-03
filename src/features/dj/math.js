@@ -53,3 +53,10 @@ export function filterControlFromFrequency(value) {
     (Math.log(clamp(value, 40, 18000) / 40) / Math.log(18000 / 40)) * 100,
   );
 }
+
+// MediaPipe only labels a hand as a pinch while the normalized thumb/index
+// distance is below 0.5. Map that active range to the complete control range
+// so a small physical pinch still reaches both filter endpoints.
+export function pinchControlFromRatio(ratio) {
+  return clamp(1 - (Number(ratio) - 0.26) / 0.24, 0, 1);
+}

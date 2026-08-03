@@ -4,6 +4,7 @@ import {
   bpmSyncRate,
   filterFrequencyFromControl,
   filterControlFromFrequency,
+  pinchControlFromRatio,
   pitchSemitones,
 } from "../src/features/dj/math.js";
 import {
@@ -44,6 +45,12 @@ test("pitch stays a semitone control and filter mapping is reversible", () => {
     const frequency = filterFrequencyFromControl(value);
     assert.ok(Math.abs(filterControlFromFrequency(frequency) - value) <= 1);
   });
+});
+
+test("pinch maps its compact active range across the full filter control", () => {
+  assert.equal(pinchControlFromRatio(0.26), 1);
+  assert.equal(pinchControlFromRatio(0.5), 0);
+  assert.equal(pinchControlFromRatio(0.38), 0.5);
 });
 
 test("hand poses have distinct control modes", () => {
