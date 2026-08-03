@@ -20,7 +20,7 @@ import {
 } from "../../features/gestures/config";
 import {
   handGesture,
-  normalizeHandedness,
+  displayHandSide,
   routeHandsToDecks,
 } from "../../features/gestures/classifier";
 
@@ -32,7 +32,11 @@ export function CameraCard() {
     1: createGestureState(),
     2: createGestureState(),
   });
-  const crossfader = useRef({ last: 0, value: 0.5 });
+  const crossfader = useRef({
+    last: 0,
+    value: 0.5,
+    driverDeck: null,
+  });
   const handVisible = useRef(false);
   const headMotion = useRef({ lastNoseY: null, cooldownUntil: 0 });
   const gestureOptionsRef = useRef(defaultGestureOptions);
@@ -63,7 +67,7 @@ export function CameraCard() {
       1: createGestureState(),
       2: createGestureState(),
     };
-    crossfader.current = { last: 0, value: 0.5 };
+    crossfader.current = { last: 0, value: 0.5, driverDeck: null };
     handVisible.current = false;
     headMotion.current = { lastNoseY: null, cooldownUntil: 0 };
   }
@@ -285,7 +289,7 @@ export function CameraCard() {
                   palmY,
                   pinchRatio: pinchDistance / palmSize,
                   visualX: clamp(1 - palmX, 0, 1),
-                  handSide: normalizeHandedness(handedness),
+                  handSide: displayHandSide(handedness),
                   rawMode: handGesture(points, pinchDistance / palmSize),
                 };
               }),
@@ -378,8 +382,11 @@ export function CameraCard() {
                   return;
                 state.last.pinch = now;
                 setActiveGesture("filter");
+                const filterBlend =
+                  pinchValue > state.values.filter ? 0.5 : 0.28;
                 state.values.filter =
-                  state.values.filter * 0.72 + pinchValue * 0.28;
+                  state.values.filter * (1 - filterBlend) +
+                  pinchValue * filterBlend;
                 setGestureStatus(
                   `DECK ${label} · Pinch filter ${Math.round(state.values.filter * 100)}%`,
                 );
@@ -458,25 +465,33 @@ export function CameraCard() {
                   ({ deck }) => handStates.current[deck].mode === "crossfader",
                 )
               : [];
-            if (detectedHands.length === 2 && openHands.length === 2) {
-              if (now - crossfader.current.last > 70) {
+            if (openHands.length) {
+              // One open palm is the fader hand. Keep the selected hand while
+              // it remains open; when it leaves, the other hand can take over.
+              const driver =
+                openHands.find(
+                  ({ deck }) => deck === crossfader.current.driverDeck,
+                ) || openHands[0];
+              crossfader.current.driverDeck = driver.deck;
+              if (now - crossfader.current.last > 45) {
                 crossfader.current.last = now;
-                const value =
-                  openHands.reduce(
-                    (sum, handData) => sum + handData.visualX,
-                    0,
-                  ) / openHands.length;
+                // visualX is already in the mirrored display coordinate space:
+                // left edge = Deck A (0), right edge = Deck B (1).
+                const target = clamp(driver.visualX, 0, 1);
                 crossfader.current.value =
-                  crossfader.current.value * 0.72 + value * 0.28;
+                  crossfader.current.value * 0.35 + target * 0.65;
                 setActiveGesture("crossfader");
                 setGestureStatus(
-                  `Open palms · crossfader ${Math.round(crossfader.current.value * 100)}%`,
+                  `Open palm sweep · crossfader ${Math.round(crossfader.current.value * 100)}%`,
                 );
                 emitDjEvent({
                   type: "crossfader",
                   value: crossfader.current.value,
+                  deck: driver.deck,
                 });
               }
+            } else {
+              crossfader.current.driverDeck = null;
             }
             if (detectedHands.length) handVisible.current = true;
             else if (handVisible.current) {

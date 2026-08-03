@@ -11,7 +11,7 @@ import {
   outsideLandsArtists,
 } from "../data/outsidelandsArtists";
 import { emitDjEvent, subscribeDjEvents } from "../features/dj/bus";
-import { deckGroup } from "../features/dj/math";
+import { deckGroup, handoffCrossfaderValue } from "../features/dj/math";
 import { api } from "../convexApi";
 import { createCommandQueue } from "../services/convex/commands";
 
@@ -51,8 +51,7 @@ export function App() {
     limit: 200,
   });
   const librarySongs = useMemo(() => {
-    if (!remoteTracks?.length) return songs;
-    const normalized = remoteTracks
+    const normalized = (remoteTracks || [])
       .map((track) => {
         const filePath = track.storageUrl || track.filePath;
         if (!filePath) return null;
@@ -68,7 +67,17 @@ export function App() {
         };
       })
       .filter(Boolean);
-    return normalized.length ? normalized : songs;
+    const byTrack = new Map(
+      normalized.map((track) => [
+        `${track.artist}`.toLowerCase() + "::" + `${track.title}`.toLowerCase(),
+        track,
+      ]),
+    );
+    songs.forEach((song) => {
+      const key = `${song.artist}`.toLowerCase() + "::" + `${song.title}`.toLowerCase();
+      if (!byTrack.has(key)) byTrack.set(key, song);
+    });
+    return [...byTrack.values()];
   }, [remoteTracks]);
   const libraryArtists = remoteFestivalArtists?.length
     ? remoteFestivalArtists
@@ -223,13 +232,22 @@ export function App() {
         ),
       );
       window.setTimeout(
-        () =>
+        () => {
+          // Move the real constant-power crossfader fully onto the newly
+          // playing deck, then stop the old deck after the handoff.
+          emitDjEvent({
+            type: "crossfader",
+            value: handoffCrossfaderValue(sourceDeck),
+            reason: "handoff",
+          });
+          emitDjEvent({ type: "handoffPause", deck: sourceDeck });
           emitDjEvent({
             type: "sync",
             deck: targetDeck,
             value: 1,
             targetBpm: next.bpm,
-          }),
+          });
+        },
         220,
       );
     }

@@ -96,6 +96,7 @@ export function Deck({
 
   useEffect(() => {
     if (!audio.current) return;
+    playingRef.current = false;
     audio.current.pause();
     audio.current.currentTime = 0;
     setPlaying(false);
@@ -159,7 +160,7 @@ export function Deck({
 
   useEffect(() => {
     applyBpmSync(syncEnabled, syncTargetBpm);
-  }, [track?.url, syncEnabled, syncTargetBpm, pitch]);
+  }, [track?.url, syncEnabled, syncTargetBpm]);
 
   useEffect(() => {
     return () => {
@@ -175,8 +176,9 @@ export function Deck({
 
   function updatePitchProcessor() {
     if (!pitchShift.current) return;
-    const keylockCorrection = -12 * Math.log2(syncRateRef.current || 1);
-    pitchShift.current.pitch = pitchSemitones(pitch) + keylockCorrection;
+    // Tone's pitch shifter changes frequency without changing the media
+    // element's transport speed. BPM sync is handled separately below.
+    pitchShift.current.pitch = pitchSemitones(pitch);
   }
 
   function applyBpmSync(enabled = syncEnabled, targetBpm = syncTargetBpm) {
@@ -186,9 +188,11 @@ export function Deck({
     syncRateRef.current = nextRate;
     if (audio.current) {
       audio.current.playbackRate = nextRate;
-      audio.current.preservesPitch = false;
-      audio.current.mozPreservesPitch = false;
-      audio.current.webkitPreservesPitch = false;
+      // Only BPM sync (or a future explicit transport control) may change
+      // playbackRate. Keep the audio element key-locked for pitch gestures.
+      audio.current.preservesPitch = true;
+      audio.current.mozPreservesPitch = true;
+      audio.current.webkitPreservesPitch = true;
     }
     updatePitchProcessor();
     setEffectiveBpm(sourceBpm > 0 ? sourceBpm * nextRate : 0);
@@ -204,7 +208,7 @@ export function Deck({
       filterNode.current.type = filterMode;
       filterNode.current.frequency.value = filter;
       pitchShift.current = new PitchShift({
-        pitch: pitchSemitones(pitch) - 12 * Math.log2(syncRateRef.current || 1),
+        pitch: pitchSemitones(pitch),
         windowSize: 0.08,
       });
       analyser.current = context.current.createAnalyser();
@@ -462,6 +466,23 @@ export function Deck({
     updateSync(false, { remote });
   }
 
+  function stopForHandoff() {
+    if (!audio.current) return;
+    playingRef.current = false;
+    audio.current.pause();
+    setPlaying(false);
+    void enqueue("play", {
+      deck: number,
+      playing: false,
+      mixxx: {
+        group: deckGroup(number),
+        control: "play",
+        value: 0,
+        midi: { channel: number, cc: 0, value: 0 },
+      },
+    });
+  }
+
   useEffect(() => {
     const unsubscribe = subscribeDjEvents((event) => {
       if (event?.deck && event.deck !== number) return;
@@ -488,12 +509,13 @@ export function Deck({
           remote: shouldSend,
           targetBpmOverride: event.targetBpm,
         });
+      if (type === "handoffPause") stopForHandoff();
       if (type === "tempoKill") updatePitch(50, { remote: true });
       if (type === "resetDefaults") resetDefaults({ remote: shouldSend });
       if (shouldSend) remoteGesture.current[type] = { time: now, value };
     });
     return unsubscribe;
-  }, [number, filterMode, syncEnabled, syncTargetBpm]);
+  }, [enqueue, number, filterMode, syncEnabled, syncTargetBpm]);
 
   return (
     <section

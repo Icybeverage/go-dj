@@ -4,11 +4,13 @@ import {
   bpmSyncRate,
   filterFrequencyFromControl,
   filterControlFromFrequency,
+  handoffCrossfaderValue,
   pinchControlFromRatio,
   pitchSemitones,
 } from "../src/features/dj/math.js";
 import {
   deckForHand,
+  displayHandSide,
   handGesture,
   routeHandsToDecks,
 } from "../src/features/gestures/classifier.js";
@@ -35,6 +37,8 @@ test("BPM sync produces a bounded playback rate", () => {
   assert.equal(bpmSyncRate(true, 140, 127), 127 / 140);
   assert.equal(bpmSyncRate(false, 140, 127), 1);
   assert.equal(bpmSyncRate(true, 40, 200), 2);
+  assert.equal(handoffCrossfaderValue(1), 1);
+  assert.equal(handoffCrossfaderValue(2), 0);
 });
 
 test("pitch stays a semitone control and filter mapping is reversible", () => {
@@ -49,8 +53,8 @@ test("pitch stays a semitone control and filter mapping is reversible", () => {
 
 test("pinch maps its compact active range across the full filter control", () => {
   assert.equal(pinchControlFromRatio(0.26), 1);
-  assert.equal(pinchControlFromRatio(0.5), 0);
-  assert.equal(pinchControlFromRatio(0.38), 0.5);
+  assert.equal(pinchControlFromRatio(0.38), 0);
+  assert.equal(pinchControlFromRatio(0.32), 0.5);
 });
 
 test("hand poses have distinct control modes", () => {
@@ -79,6 +83,14 @@ test("handedness routes left to Deck A and right to Deck B", () => {
     routed.map(({ deck }) => deck),
     [2, 1],
   );
+});
+
+test("raw camera handedness maps to the mirrored display side", () => {
+  assert.equal(displayHandSide("Left"), "right");
+  assert.equal(displayHandSide("Right"), "left");
+  assert.equal(displayHandSide("unknown"), "");
+  assert.equal(deckForHand(displayHandSide("Left")), 2);
+  assert.equal(deckForHand(displayHandSide("Right")), 1);
 });
 
 test("command payloads carry canonical Mixxx control names", () => {

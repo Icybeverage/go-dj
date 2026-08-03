@@ -1,4 +1,5 @@
 import { Context as ToneContext, setContext as setToneContext } from "tone";
+import { AIRHORN_URL } from "../../data/songs";
 
 export const audioEngine = {
   context: null,
@@ -56,7 +57,7 @@ export function setMixerMasterVolume(value) {
 export function preloadAirhorn() {
   const { context, master } = ensureAudioEngine();
   if (!airhornAudio) {
-    airhornAudio = new Audio("/sounds/airhorn.mp3");
+    airhornAudio = new Audio(AIRHORN_URL);
     airhornAudio.preload = "auto";
     airhornAudio.crossOrigin = "anonymous";
     airhornSource = context.createMediaElementSource(airhornAudio);

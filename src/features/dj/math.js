@@ -22,6 +22,10 @@ export function bpmSyncRate(enabled, sourceBpm, targetBpm) {
   return clamp(target / source, 0.5, 2);
 }
 
+export function handoffCrossfaderValue(sourceDeck) {
+  return Number(sourceDeck) === 1 ? 1 : 0;
+}
+
 export function filterStrength(mode, frequency) {
   const normalized = clamp((Number(frequency) - 40) / (18000 - 40), 0, 1);
   return mode === "highpass" ? normalized : 1 - normalized;
@@ -55,8 +59,8 @@ export function filterControlFromFrequency(value) {
 }
 
 // MediaPipe only labels a hand as a pinch while the normalized thumb/index
-// distance is below 0.5. Map that active range to the complete control range
-// so a small physical pinch still reaches both filter endpoints.
+// distance is below 0.5. Use half of that range so the filter reaches its
+// endpoint in half the physical travel.
 export function pinchControlFromRatio(ratio) {
-  return clamp(1 - (Number(ratio) - 0.26) / 0.24, 0, 1);
+  return clamp(1 - (Number(ratio) - 0.26) / 0.12, 0, 1);
 }
