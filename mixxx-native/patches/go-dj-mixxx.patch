@@ -2,6 +2,16 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 88b78536bc..b4fb8ae944 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
+@@ -2384,6 +2384,9 @@
+     qt_add_executable(mixxx src/main.cpp MANUAL_FINALIZATION)
++    if(QML)
++      target_compile_definitions(mixxx PRIVATE MIXXX_USE_QML)
++    endif()
+     set_property(
+       TARGET mixxx
+       PROPERTY
+         QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/packaging/android"
+     )
 @@ -2402,6 +2402,9 @@ if(QT6)
      NAME android.permission.ACCESS_NETWORK_STATE
      )
