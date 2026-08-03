@@ -775,32 +775,37 @@ p {
   border-radius: 8px;
   background: #090d12;
 }
+.waveform-instance {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.waveform-instance > * {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 .spectrum-bars {
   position: absolute;
-  inset: 7px;
+  inset: auto 8px 4px;
+  z-index: 3;
   display: flex;
-  align-items: center;
+  align-items: end;
   gap: 2px;
+  height: 12px;
+  pointer-events: none;
+  opacity: 0.28;
 }
 .spectrum-bars i {
   flex: 1;
   min-height: 3px;
+  max-height: 12px;
   border-radius: 2px;
   background: linear-gradient(180deg, var(--cyan), #2e837d);
-  opacity: 0.8;
 }
 .deck-b .spectrum-bars i {
   background: linear-gradient(180deg, var(--violet), #8150a3);
-}
-.wave-progress {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-right: 1px solid #ffffff99;
-  background: #57e6da12;
-  pointer-events: none;
-}
-.deck-b .wave-progress {
-  background: #ce8aff12;
 }
 .time-readout {
   display: grid;

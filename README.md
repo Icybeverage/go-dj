@@ -26,6 +26,43 @@ Convex action + 12-hour cron
         Go DJ! web UI or Android APK → local relay → Mixxx MIDI/controller mapping
 ```
 
+## JamBase + Convex integration map
+
+This repository deliberately separates event metadata, audio storage, and live
+DJ state so each system has a clear job:
+
+| System | Role in Go DJ! | Where to inspect it |
+| --- | --- | --- |
+| JamBase | Supplies Outside Lands event, artist, schedule, billing, genre, and source-link metadata. It is not an audio-download provider. | `supabase/functions/jambase-outside-lands/`, `convex/jambase.ts` |
+| Supabase | Keeps the JamBase bearer key server-side and stores authorized festival audio in the `outsidelands` bucket. | `supabase/functions/`, `src/data/songs.js` |
+| Convex | Owns reactive sessions, deck state, gesture telemetry, catalog snapshots, playable track metadata, user-upload registration, and the canonical Mixxx command queue. | `convex/schema.ts`, `convex/sessions.ts`, `convex/tracks.ts`, `convex/mixxx.ts` |
+| Go DJ! web UI | Reads lineup and playable tracks with Convex queries, sends controls with Convex mutations, and renders the browser audio deck/waveform. | `src/app/App.jsx`, `src/components/dj/Deck.jsx` |
+| Mixxx bridge/APK | Consumes the canonical Convex command payloads and applies them to real Mixxx controls. | `mixxx-bridge/`, `mixxx-native/` |
+
+The live path is therefore:
+
+```text
+JamBase event metadata
+  → Supabase Edge Function (secret stays server-side)
+  → Convex festival snapshot + artist catalog
+  → Go DJ! lineup/library queries
+
+Authorized audio file
+  → Supabase Storage or Convex File Storage
+  → Convex tracks record (file, BPM, source, session scope)
+  → browser deck / real Mixxx bridge
+
+Gesture or touch control
+  → Convex session state + command queue
+  → desktop relay or Android Mixxx surface
+```
+
+Convex is not being used as a proxy for JamBase or as the browser's audio
+engine. It is the shared state and control layer: the browser and native Mixxx
+surface can observe the same session, while audio stays local to the browser or
+Mixxx engine. The web deck uses wavesurfer.js for the track waveform while its
+existing Web Audio graph handles filters, pitch/keylock, effects, and levels.
+
 ## What JamBase does—and does not do
 
 JamBase is the live event and artist metadata source. The Supabase function
@@ -45,7 +82,8 @@ the player.
 ## Repository layout
 
 - `src/` — Go DJ web dashboard, browser audio engine, MediaPipe controls, and
-  Convex client.
+  Convex client. `Deck.jsx` uses wavesurfer.js against each existing audio
+  element, so waveform interaction does not create a second playback stream.
 - `convex/` — universal sessions, deck/mixer state, gesture telemetry,
   catalog APIs, track catalog, JamBase refresh action, Mixxx command queue, and
   the scheduled refresh.

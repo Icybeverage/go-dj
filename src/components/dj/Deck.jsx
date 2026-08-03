@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { PitchShift } from "tone";
+import WaveSurfer from "wavesurfer.js";
 import { Icon } from "./Icons";
 import { subscribeDjEvents } from "../../features/dj/bus";
 import {
@@ -38,6 +39,8 @@ export function Deck({
   const effectNodes = useRef(null);
   const spectrumFrame = useRef(null);
   const context = useRef(null);
+  const waveformContainer = useRef(null);
+  const waveSurfer = useRef(null);
   const remoteGesture = useRef({});
   const cuePoint = useRef(0);
   const playingRef = useRef(false);
@@ -101,6 +104,41 @@ export function Deck({
     setPlaybackError("");
     cuePoint.current = 0;
   }, [track?.url]);
+
+  useEffect(() => {
+    const container = waveformContainer.current;
+    const media = audio.current;
+
+    waveSurfer.current?.destroy();
+    waveSurfer.current = null;
+    if (container) container.replaceChildren();
+
+    if (!container || !media || !track?.url) return undefined;
+
+    const instance = WaveSurfer.create({
+      container,
+      media,
+      url: track.url,
+      height: 56,
+      waveColor: number === 1 ? "#2e837d" : "#8150a3",
+      progressColor: number === 1 ? "#57e6da" : "#ce8aff",
+      cursorColor: "#f5f7fa",
+      cursorWidth: 1,
+      barWidth: 2,
+      barGap: 1,
+      barRadius: 2,
+      normalize: true,
+      interact: true,
+      dragToSeek: true,
+      hideScrollbar: true,
+    });
+    waveSurfer.current = instance;
+
+    return () => {
+      if (waveSurfer.current === instance) waveSurfer.current = null;
+      instance.destroy();
+    };
+  }, [number, track?.url]);
 
   useEffect(() => {
     if (!autoPlaySignal || !track?.url) return undefined;
@@ -492,15 +530,16 @@ export function Deck({
         preload="metadata"
       />
       <div className="deck-waveform">
-        <div className="spectrum-bars">
+        <div
+          ref={waveformContainer}
+          className="waveform-instance"
+          aria-label={`Deck ${number} waveform`}
+        />
+        <div className="spectrum-bars" aria-hidden="true">
           {spectrum.map((level, index) => (
             <i key={index} style={{ height: `${level}%` }} />
           ))}
         </div>
-        <div
-          className="wave-progress"
-          style={{ width: `${progress * 100}%` }}
-        />
       </div>
       <div className="time-readout">
         <span>
