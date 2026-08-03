@@ -46,8 +46,14 @@ Run the Convex relay with:
 ```sh
 GODJ_CONVEX_URL="https://your-deployment.convex.cloud" \
 GODJ_ADAPTER_URL="http://127.0.0.1:8787/mixxx" \
+GODJ_SESSION_KEY="your-paired-session-key" \
 node mixxx-bridge/poll-commands.mjs
 ```
+
+`GODJ_SESSION_KEY` is strongly recommended: it scopes the native relay to one
+DJ session instead of allowing it to consume commands from every session on a
+shared deployment. The current key is a development pairing mechanism; add
+authenticated invites before exposing the bridge publicly.
 
 The adapter endpoint is intentionally explicit: it is the desktop/native
 piece that sends messages to the native Mixxx mapping. No browser page can

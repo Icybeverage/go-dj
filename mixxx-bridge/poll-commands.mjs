@@ -5,6 +5,7 @@ const POLL_INTERVAL_MS = 250;
 const once = process.argv.includes("--once");
 const convexUrl = process.env.GODJ_CONVEX_URL;
 const adapterUrl = process.env.GODJ_ADAPTER_URL;
+const sessionKey = process.env.GODJ_SESSION_KEY;
 
 if (!convexUrl || !adapterUrl) {
   throw new Error(
@@ -15,7 +16,10 @@ if (!convexUrl || !adapterUrl) {
 const client = new ConvexHttpClient(convexUrl);
 
 async function forwardPending() {
-  const pending = await client.query(api.mixxx.pending, {});
+  const pending = await client.query(
+    api.mixxx.pending,
+    sessionKey ? { sessionKey } : {},
+  );
   for (const command of pending) {
     const claimed = await client.mutation(api.mixxx.claim, { id: command._id });
     if (!claimed) continue;
