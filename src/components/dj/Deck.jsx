@@ -320,13 +320,17 @@ export function Deck({
     });
   }
 
-  function updateFilter(value, { remote = true, mode = filterMode } = {}) {
+  function updateFilter(
+    value,
+    { remote = true, mode = filterMode, handSide } = {},
+  ) {
     const next = clamp(value, 40, 18000);
     setFilter(next);
     if (filterNode.current) filterNode.current.frequency.value = next;
     if (remote)
       enqueue("setFilter", {
         deck: number,
+        handSide,
         type: mode,
         frequency: next,
         strength: filterStrength(mode, next),
@@ -368,7 +372,7 @@ export function Deck({
       });
   }
 
-  function updatePitch(value, { remote = true } = {}) {
+  function updatePitch(value, { remote = true, handSide } = {}) {
     const next = clamp(value, 0, 100);
     const semitones = pitchSemitones(next);
     setPitch(next);
@@ -376,6 +380,7 @@ export function Deck({
     if (remote)
       enqueue("setPitch", {
         deck: number,
+        handSide,
         percent: next,
         semitones,
         keylock: true,
@@ -400,13 +405,14 @@ export function Deck({
       });
   }
 
-  function updateEffectMix(value, { remote = true } = {}) {
+  function updateEffectMix(value, { remote = true, handSide } = {}) {
     const next = clamp(value, 0, 1);
     setEffectMix(next);
     if (effectNodes.current) effectNodes.current.wet.gain.value = next;
     if (remote)
       enqueue("setEffectMix", {
         deck: number,
+        handSide,
         unit: 1,
         value: next,
         effect: "browser-delay / native Mixxx EffectUnit1 mix",
@@ -423,7 +429,7 @@ export function Deck({
 
   function updateSync(
     enabled = !syncEnabled,
-    { remote = true, targetBpmOverride = null } = {},
+    { remote = true, targetBpmOverride = null, handSide } = {},
   ) {
     const next = Boolean(enabled);
     const targetBpm = Number(targetBpmOverride ?? syncTargetBpm) || null;
@@ -433,6 +439,7 @@ export function Deck({
     if (remote)
       enqueue("setSync", {
         deck: number,
+        handSide,
         enabled: next,
         sourceBpm,
         targetBpm,
@@ -477,6 +484,12 @@ export function Deck({
   useEffect(() => {
     const unsubscribe = subscribeDjEvents((event) => {
       if (event?.deck && event.deck !== number) return;
+      if (
+        event?.handSide &&
+        ((event.handSide === "left" && number !== 1) ||
+          (event.handSide === "right" && number !== 2))
+      )
+        return;
       const value = clamp((event?.value || 0) * 100, 0, 100);
       const type = event?.type;
       const now = performance.now();
@@ -489,15 +502,20 @@ export function Deck({
           filterMode === "highpass"
             ? filterFrequencyFromControl(value)
             : filterFrequencyFromControl(100 - value),
-          { remote: shouldSend },
+          { remote: shouldSend, handSide: event.handSide },
         );
-      if (type === "pitch") updatePitch(value, { remote: shouldSend });
+      if (type === "pitch")
+        updatePitch(value, { remote: shouldSend, handSide: event.handSide });
       if (type === "effect")
-        updateEffectMix(value / 100, { remote: shouldSend });
+        updateEffectMix(value / 100, {
+          remote: shouldSend,
+          handSide: event.handSide,
+        });
       if (type === "sync")
         updateSync(true, {
           remote: shouldSend,
           targetBpmOverride: event.targetBpm,
+          handSide: event.handSide,
         });
       if (type === "handoffPause") stopForHandoff();
       if (type === "tempoKill") updatePitch(50, { remote: true });

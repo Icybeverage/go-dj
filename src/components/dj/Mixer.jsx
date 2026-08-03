@@ -17,13 +17,18 @@ export function Mixer({ enqueue }) {
     enqueue(command, { ...args, value: Number(value) });
   }
 
-  function updateCrossfader(value, { remote = true } = {}) {
+  function updateCrossfader(
+    value,
+    { remote = true, deck = null, handSide } = {},
+  ) {
     const next = clamp(value, 0, 100);
     const mixxxValue = next / 50 - 1;
     setCrossfader(next);
     setMixerCrossfader(next);
     if (remote)
       change("setCrossfader", next, {
+        deck,
+        handSide,
         curve: "constant-power",
         deckA: Math.round(Math.cos(((next / 100) * Math.PI) / 2) * 100),
         deckB: Math.round(Math.cos(((1 - next / 100) * Math.PI) / 2) * 100),
@@ -82,7 +87,11 @@ export function Mixer({ enqueue }) {
         now - remoteGesture.time > 140 &&
         (remoteGesture.value === null ||
           Math.abs(value - remoteGesture.value) >= 1);
-      updateCrossfader(value, { remote: shouldSend });
+      updateCrossfader(value, {
+        remote: shouldSend,
+        deck: event.deck,
+        handSide: event.handSide,
+      });
       if (shouldSend) Object.assign(remoteGesture, { time: now, value });
     });
   }, [enqueue]);

@@ -79,8 +79,7 @@ test("hand poses have distinct control modes", () => {
 test("handedness routes left to Deck A and right to Deck B", () => {
   assert.equal(deckForHand("Left", 0.9), 1);
   assert.equal(deckForHand("Right", 0.1), 2);
-  assert.equal(deckForHand("", 0.2), 1);
-  assert.equal(deckForHand("", 0.8), 2);
+  assert.equal(deckForHand(""), null);
 
   const routed = routeHandsToDecks([
     { handSide: "right", visualX: 0.1 },
@@ -89,6 +88,13 @@ test("handedness routes left to Deck A and right to Deck B", () => {
   assert.deepEqual(
     routed.map(({ deck }) => deck),
     [2, 1],
+  );
+  assert.deepEqual(
+    routeHandsToDecks([
+      { handSide: "left", visualX: 0.1 },
+      { handSide: "left", visualX: 0.9 },
+    ]).map(({ deck }) => deck),
+    [1],
   );
 });
 
@@ -137,4 +143,13 @@ test("track load intents enter Convex while the native bridge can defer path loa
   });
   assert.equal(calls.length, 2);
   assert.equal(calls[1].protocol, MIXXX_COMMAND_PROTOCOL);
+
+  await enqueue("setFilter", {
+    deck: 1,
+    handSide: "left",
+    frequency: 1200,
+  });
+  const gesturePayload = JSON.parse(calls[2].argsJson);
+  assert.equal(gesturePayload.args.deck, 1);
+  assert.equal(gesturePayload.args.handSide, "left");
 });

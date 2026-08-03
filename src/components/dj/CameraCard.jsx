@@ -361,7 +361,7 @@ export function CameraCard() {
 
             const now = timestamp;
             detectedHands.forEach(
-              ({ palmY, visualX, pinchRatio, rawMode, deck }) => {
+              ({ palmY, visualX, pinchRatio, rawMode, handSide, deck }) => {
               const state = handStates.current[deck];
               const previousWaveX = state.waveX;
               state.waveX = visualX;
@@ -408,6 +408,7 @@ export function CameraCard() {
                 emitDjEvent({
                   type: "pinch",
                   value: state.values.filter,
+                  handSide,
                   deck,
                 });
               } else if (mode === "pitch") {
@@ -424,7 +425,12 @@ export function CameraCard() {
                 setGestureStatus(
                   `DECK ${label} · Two-finger pitch ${Math.round(state.values.pitch * 100)}%`,
                 );
-                emitDjEvent({ type: "pitch", value: state.values.pitch, deck });
+                emitDjEvent({
+                  type: "pitch",
+                  value: state.values.pitch,
+                  handSide,
+                  deck,
+                });
               } else if (mode === "effect") {
                 state.mode = mode;
                 if (
@@ -442,6 +448,7 @@ export function CameraCard() {
                 emitDjEvent({
                   type: "effect",
                   value: state.values.effect,
+                  handSide,
                   deck,
                 });
               } else if (mode === "fist") {
@@ -457,6 +464,7 @@ export function CameraCard() {
                   emitDjEvent({
                     type: "crossfader",
                     value,
+                    handSide,
                     deck,
                     gesture: "fist",
                     direction: deck === 1 ? "RIGHT" : "LEFT",
@@ -501,6 +509,7 @@ export function CameraCard() {
                 emitDjEvent({
                   type: "crossfader",
                   value: crossfader.current.value,
+                  handSide: driver.handSide,
                   deck: driver.deck,
                   gesture: "wave",
                   direction,

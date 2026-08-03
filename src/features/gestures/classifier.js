@@ -23,27 +23,22 @@ export function displayHandSide(value) {
   return "";
 }
 
-export function deckForHand(handSide, visualX = 0.5) {
+export function deckForHand(handSide) {
   const side = normalizeHandedness(handSide);
   if (side === "left") return 1;
   if (side === "right") return 2;
-  return Number(visualX) < 0.5 ? 1 : 2;
+  // Never infer a deck from screen position: an unknown hand must not bleed
+  // into the opposite deck.
+  return null;
 }
 
 export function routeHandsToDecks(hands) {
   const used = new Set();
   return hands.slice(0, 2).reduce((routed, hand) => {
-    const preferred = deckForHand(hand.handSide, hand.visualX);
-    const alternate = preferred === 1 ? 2 : 1;
-    const deck = used.has(preferred)
-      ? used.has(alternate)
-        ? null
-        : alternate
-      : preferred;
-    if (deck) {
-      used.add(deck);
-      routed.push({ ...hand, deck });
-    }
+    const preferred = deckForHand(hand.handSide);
+    if (!preferred || used.has(preferred)) return routed;
+    used.add(preferred);
+    routed.push({ ...hand, deck: preferred });
     return routed;
   }, []);
 }
