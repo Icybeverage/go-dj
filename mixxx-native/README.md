@@ -32,6 +32,8 @@ The surface is wired to actual Mixxx controls:
 
 It also declares optional camera hardware, includes `android.permission.CAMERA`,
 and shows the mirrored Qt Multimedia preview after the user taps `ALLOW`.
+The patch resolves Mixxx's Android 15-only performance-hint preference call at
+runtime, so an API 35-targeted build can still launch on API 34 devices.
 
 ## Checks and build
 

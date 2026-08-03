@@ -32,6 +32,30 @@ index c13b9966c6..d58fdaff2f 100644
 +        android:name="android.hardware.camera"
 +        android:required="false" />
  </manifest>
+diff --git a/src/qml/qmlapplication.cpp b/src/qml/qmlapplication.cpp
+--- a/src/qml/qmlapplication.cpp
++++ b/src/qml/qmlapplication.cpp
+@@ -29,5 +29,6 @@
+ #if defined(Q_OS_ANDROID)
+ #include <android/api-level.h>
+ #include <android/log.h>
+ #include <android/performance_hint.h>
++#include <dlfcn.h>
+ #endif
+@@ -243,5 +243,12 @@
+     }
+     else {
+-        APerformanceHint_setPreferPowerEfficiency(m_perfSession, false);
++        // This API was added in Android 15 (API 35), while the other
++        // performance hint calls are available from Android 13. Resolve it
++        // at runtime so a build targeting API 35 still launches on API 34.
++        auto setPreferPowerEfficiency = reinterpret_cast<int (*)(APerformanceHintSession*, bool)>(
++                dlsym(RTLD_DEFAULT, "APerformanceHint_setPreferPowerEfficiency"));
++        if (setPreferPowerEfficiency) {
++            setPreferPowerEfficiency(m_perfSession, false);
++        }
+         __android_log_print(ANDROID_LOG_VERBOSE, "mixxx", "ADPF session ready");
+     }
 diff --git a/res/qml/main.qml b/res/qml/main.qml
 index a84e747c93..e005db613f 100644
 --- a/res/qml/main.qml
