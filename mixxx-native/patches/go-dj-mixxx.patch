@@ -61,7 +61,7 @@ diff --git a/src/main.cpp b/src/main.cpp
 +++ b/src/main.cpp
 @@ -61,5 +61,7 @@
  int runMixxx(MixxxApplication* pApp, const CmdlineArgs& args) {
-+#ifndef __ANDROID__
++#if 0
      CmdlineArgs::Instance().parseForUserFeedback();
 +#endif
  
@@ -70,24 +70,24 @@ diff --git a/src/main.cpp b/src/main.cpp
 @@ -66,4 +68,11 @@
  #ifdef MIXXX_USE_QML
      QString mainQmlFilePath;
-+#ifdef __ANDROID__
++#if 1
 +    bool loadQml = true;
 +#else
      bool loadQml = args.isQml();
 +#endif
-+#ifdef __ANDROID__
++#if 1
 +    qWarning() << "Go DJ Android: entering QML startup";
 +#endif
      if (!loadQml && args.getDeveloper()) {
 @@ -330,4 +334,17 @@
      // When the last window is closed, terminate the Qt event loop.
-+#ifdef __ANDROID__
++#if 1
 +    // Android may temporarily lose its window while the activity sleeps.
 +    app.setQuitOnLastWindowClosed(false);
 +#else
      QObject::connect(&app, &MixxxApplication::lastWindowClosed, &app, &MixxxApplication::quit);
 +#endif
-+#ifdef __ANDROID__
++#if 1
 +    QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {
 +        qWarning() << "Go DJ Android: Qt aboutToQuit emitted";
 +    });
