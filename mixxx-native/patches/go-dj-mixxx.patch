@@ -59,7 +59,15 @@ diff --git a/src/qml/qmlapplication.cpp b/src/qml/qmlapplication.cpp
 diff --git a/src/main.cpp b/src/main.cpp
 --- a/src/main.cpp
 +++ b/src/main.cpp
-@@ -66,4 +66,11 @@
+@@ -61,5 +61,7 @@
+ int runMixxx(MixxxApplication* pApp, const CmdlineArgs& args) {
++#ifndef Q_OS_ANDROID
+     CmdlineArgs::Instance().parseForUserFeedback();
++#endif
+ 
+     int exitCode;
+     auto pCoreServices = std::make_shared<mixxx::CoreServices>(args, pApp);
+@@ -66,4 +68,11 @@
  #ifdef MIXXX_USE_QML
      QString mainQmlFilePath;
 +#ifdef Q_OS_ANDROID
