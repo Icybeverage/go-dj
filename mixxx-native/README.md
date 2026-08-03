@@ -18,8 +18,10 @@ cannot silently change the native control surface.
 ## Overlay
 
 `apply-overlay.sh` verifies the pin, checks that the submodule is clean, applies
-the small source patch, and copies `qml/GoDjCameraSurface.qml` into Mixxx's
-resource tree. The overlay is deliberately independent of Outside Lands: it
+the small source patch, and copies the two camera QML components into Mixxx's
+resource tree. The multimedia capture component is deferred until the user
+requests camera access, so Mixxx can boot on devices without a camera provider.
+The overlay is deliberately independent of Outside Lands: it
 adds a universal performance camera and touch control surface to the Mixxx
 application.
 
@@ -28,7 +30,25 @@ The surface is wired to actual Mixxx controls:
 - `[Channel1] play` and `[Channel2] play`
 - `[Channel1] sync_enabled` and `[Channel2] sync_enabled`
 - `[QuickEffectRack1_[Channel1]] super1` and the Channel 2 equivalent
+- `[Channel1] pitch_adjust` and `[Channel2] pitch_adjust` with `keylock` enabled for speed-locked frequency changes
 - `[Master] crossfader`
+- `[Recording] status` and `[Recording] toggle_recording`
+
+The native surface now exposes the same pitch behavior as the website: the
+pitch control uses Mixxx's independent `pitch_adjust` control over ±3
+semitones and forces keylock on, so transport speed changes only come from
+sync or the normal rate control. Its handoff buttons start and sync the target
+deck, then after 220 ms move the real crossfader to the target endpoint and
+stop the source deck. The target track must already be loaded in Mixxx; native
+MediaPipe hand tracking and automatic library-next selection remain web-side
+until a native tracker/library bridge is added.
+
+The surface also includes a `REC MP3` control. It calls Mixxx's native
+recording manager, selects the built-in LAME MP3 encoder, and creates a
+timestamped file in `Music/Mixxx/Recordings` when Android permits that public
+folder. If public storage is unavailable, Mixxx falls back to its private app
+data recordings directory. The status button shows the native recording
+duration and becomes `STOP REC` while the engine is active.
 
 It also declares optional camera hardware, includes `android.permission.CAMERA`,
 and shows the mirrored Qt Multimedia preview after the user taps `ALLOW`.

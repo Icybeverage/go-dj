@@ -118,4 +118,108 @@ diff --git a/src/soundio/portaudioenumerator.cpp b/src/soundio/portaudioenumerat
 +        }
          QJniObject PROPERTY_OUTPUT_FRAMES_PER_BUFFER =
                  QJniObject::getStaticField<jstring>(
-                         "android/media/AudioManager",
+                        "android/media/AudioManager",
+
+diff --git a/src/qml/qmlrecordingproxy.cpp b/src/qml/qmlrecordingproxy.cpp
+index b56ad8574e..8e525a826d 100644
+--- a/src/qml/qmlrecordingproxy.cpp
++++ b/src/qml/qmlrecordingproxy.cpp
+@@ -42,6 +42,10 @@ QmlRecordingProxy* QmlRecordingProxy::create(
+     return new QmlRecordingProxy(s_pRecordingManager, pQmlEngine);
+ }
+ 
++bool QmlRecordingProxy::prepareMp3Recording() {
++    return m_pRecordingManager && m_pRecordingManager->prepareMobileMp3Recording();
++}
++
+ void QmlRecordingProxy::slotDurationRecorded(const QString& durationText) {
+     if (m_durationText == durationText) {
+         return;
+diff --git a/src/qml/qmlrecordingproxy.h b/src/qml/qmlrecordingproxy.h
+index 976790a1c6..f63e2b0b37 100644
+--- a/src/qml/qmlrecordingproxy.h
++++ b/src/qml/qmlrecordingproxy.h
+@@ -27,6 +27,8 @@ class QmlRecordingProxy : public QObject {
+         return m_durationText;
+     }
+ 
++    Q_INVOKABLE bool prepareMp3Recording();
++
+     static inline std::shared_ptr<RecordingManager> s_pRecordingManager;
+ 
+   signals:
+diff --git a/src/recording/recordingmanager.cpp b/src/recording/recordingmanager.cpp
+index f83fe3e391..f806b698ea 100644
+--- a/src/recording/recordingmanager.cpp
++++ b/src/recording/recordingmanager.cpp
+@@ -2,8 +2,10 @@
+ 
+ #include <QDateTime>
+ #include <QDir>
++#include <QFileInfo>
+ #include <QMessageBox>
+ #include <QMutex>
++#include <QStandardPaths>
+ #include <QStorageInfo>
+ 
+ #include "control/controlpushbutton.h"
+@@ -197,6 +199,45 @@ QString& RecordingManager::getRecordingDir() {
+     return m_recordingDir;
+ }
+ 
++bool RecordingManager::prepareMobileMp3Recording() {
++    if (isRecordingActive()) {
++        return false;
++    }
++
++    const QString musicLocation =
++            QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
++    const QString appDataLocation =
++            QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
++
++    QString recordingDir;
++    if (!musicLocation.isEmpty()) {
++        recordingDir = QDir(musicLocation).filePath(QStringLiteral("Mixxx/Recordings"));
++    }
++
++    QDir directory;
++    if (recordingDir.isEmpty() || !directory.mkpath(recordingDir)) {
++        if (appDataLocation.isEmpty()) {
++            qWarning() << "Could not find a writable Android recording location";
++            return false;
++        }
++        recordingDir = QDir(appDataLocation).filePath(QStringLiteral("Recordings"));
++        if (!directory.mkpath(recordingDir)) {
++            qWarning() << "Could not create Android recording location" << recordingDir;
++            return false;
++        }
++    }
++
++    m_pConfig->set(ConfigKey(RECORDING_PREF_KEY, "Directory"),
++            ConfigValue(recordingDir));
++    m_pConfig->set(ConfigKey(RECORDING_PREF_KEY, "Encoding"),
++            ConfigValue(QStringLiteral(ENCODING_MP3)));
++    m_pConfig->set(ConfigKey(RECORDING_PREF_KEY, "FileSize"),
++            ConfigValue(QStringLiteral(SPLIT_NONE)));
++    setRecordingDir();
++
++    return !m_recordingDir.isEmpty() && QFileInfo(m_recordingDir).isDir();
++}
++
+ // Only called when recording is active.
+ void RecordingManager::slotDurationRecorded(quint64 duration) {
+     if (m_secondsRecordedSplit != duration) {
+diff --git a/src/recording/recordingmanager.h b/src/recording/recordingmanager.h
+index bd0b6b7430..b519baa9fd 100644
+--- a/src/recording/recordingmanager.h
++++ b/src/recording/recordingmanager.h
+@@ -32,6 +32,9 @@ class RecordingManager : public QObject {
+     void startRecording();
+     void stopRecording();
+     bool isRecordingActive() const;
++    // Prepare a writable Android recording folder and force the real Mixxx
++    // recording engine to use its built-in MP3 encoder.
++    bool prepareMobileMp3Recording();
+     void setRecordingDir();
+     QString& getRecordingDir();
+     // Returns the currently recording file
