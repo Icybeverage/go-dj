@@ -65,9 +65,6 @@ export function CameraCard() {
   }
 
   function resetTrackingState() {
-    Object.values(handStates.current).forEach((state) => {
-      clearTimeout(state.fistHoldTimer);
-    });
     handStates.current = {
       1: createGestureState(),
       2: createGestureState(),
@@ -391,8 +388,6 @@ export function CameraCard() {
               } else {
                 state.waveAccum = 0;
               }
-              if (mode !== "fist" && state.mode === "fist")
-                clearTimeout(state.fistHoldTimer);
               if (mode === "pinch") {
                 state.mode = mode;
                 if (
@@ -453,18 +448,21 @@ export function CameraCard() {
                 if (state.mode !== "fist") {
                   state.mode = mode;
                   if (!gestureOptionsRef.current.sync) return;
-                  setActiveGesture("sync");
-                  setGestureStatus(`DECK ${label} · Closed fist · BPM sync`);
-                  emitDjEvent({ type: "syncNext", deck });
-                  clearTimeout(state.fistHoldTimer);
-                  state.fistHoldTimer = window.setTimeout(() => {
-                    if (!gestureOptionsRef.current.sync) return;
-                    setGestureStatus(`DECK ${label} · Fist held · handoff`);
-                    emitDjEvent({ type: "handoffNext", deck });
-                  }, 900);
+                  const value = deck === 1 ? 1 : 0;
+                  crossfader.current.value = value;
+                  setActiveGesture("crossfader");
+                  setGestureStatus(
+                    `DECK ${label} · FIST · crossfader ${value * 100}%`,
+                  );
+                  emitDjEvent({
+                    type: "crossfader",
+                    value,
+                    deck,
+                    gesture: "fist",
+                    direction: deck === 1 ? "RIGHT" : "LEFT",
+                  });
                 }
               } else if (mode === "neutral" || mode === "crossfader") {
-                clearTimeout(state.fistHoldTimer);
                 state.mode = mode;
               }
               },
@@ -515,7 +513,6 @@ export function CameraCard() {
             else if (handVisible.current) {
               handVisible.current = false;
               Object.values(handStates.current).forEach((state) => {
-                clearTimeout(state.fistHoldTimer);
                 state.mode = "neutral";
               });
               setActiveGesture("none");

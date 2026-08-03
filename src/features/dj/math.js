@@ -22,10 +22,6 @@ export function bpmSyncRate(enabled, sourceBpm, targetBpm) {
   return clamp(target / source, 0.5, 2);
 }
 
-export function handoffCrossfaderValue(sourceDeck) {
-  return Number(sourceDeck) === 1 ? 1 : 0;
-}
-
 export function crossfaderWaveDirection(deck, delta, threshold = 0.004) {
   const movement = Number(delta);
   if (!Number.isFinite(movement) || Math.abs(movement) <= threshold) return 0;

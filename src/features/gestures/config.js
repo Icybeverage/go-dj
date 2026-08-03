@@ -43,9 +43,9 @@ export const GESTURE_OPTIONS = [
   },
   {
     id: "sync",
-    label: "SYNC / NEXT",
+    label: "FIST CROSSFADE",
     pose: "Closed fist",
-    detail: "BPM sync · hold for handoff",
+    detail: "A → B 100% · B → A 0%",
   },
   {
     id: "crossfader",
@@ -67,7 +67,6 @@ export function createGestureState() {
     mode: "neutral",
     candidate: "neutral",
     candidateSince: 0,
-    fistHoldTimer: null,
     waveX: null,
     waveAccum: 0,
   };

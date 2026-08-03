@@ -10,8 +10,7 @@ import {
   OUTSIDE_LANDS_FESTIVAL,
   outsideLandsArtists,
 } from "../data/outsidelandsArtists";
-import { emitDjEvent, subscribeDjEvents } from "../features/dj/bus";
-import { deckGroup, handoffCrossfaderValue } from "../features/dj/math";
+import { deckGroup } from "../features/dj/math";
 import { api } from "../convexApi";
 import { createCommandQueue } from "../services/convex/commands";
 
@@ -194,69 +193,6 @@ export function App() {
       return current.map((_, index) => index === deck - 1);
     });
   }, []);
-
-  useEffect(() => {
-    function nextSongFor(sourceDeck) {
-      const currentFile = decks[sourceDeck - 1]?.file;
-      const currentIndex = librarySongs.findIndex(
-        (song) => song.file === currentFile,
-      );
-      return (
-        librarySongs[
-          (currentIndex + 1 + librarySongs.length) % librarySongs.length
-        ] || librarySongs[0]
-      );
-    }
-
-    function syncNext(sourceDeck) {
-      const targetDeck = sourceDeck === 1 ? 2 : 1;
-      const next = nextSongFor(sourceDeck);
-      if (next && decks[targetDeck - 1]?.file !== next.file)
-        loadSong(targetDeck - 1, next);
-      emitDjEvent({
-        type: "sync",
-        deck: targetDeck,
-        value: 1,
-        targetBpm: next?.bpm,
-      });
-    }
-
-    function handoffNext(sourceDeck) {
-      const targetDeck = sourceDeck === 1 ? 2 : 1;
-      const next = nextSongFor(sourceDeck);
-      if (!next) return;
-      loadSong(targetDeck - 1, next);
-      setAutoPlaySignals((current) =>
-        current.map((value, index) =>
-          index === targetDeck - 1 ? value + 1 : value,
-        ),
-      );
-      window.setTimeout(
-        () => {
-          // Move the real constant-power crossfader fully onto the newly
-          // playing deck, then stop the old deck after the handoff.
-          emitDjEvent({
-            type: "crossfader",
-            value: handoffCrossfaderValue(sourceDeck),
-            reason: "handoff",
-          });
-          emitDjEvent({ type: "handoffPause", deck: sourceDeck });
-          emitDjEvent({
-            type: "sync",
-            deck: targetDeck,
-            value: 1,
-            targetBpm: next.bpm,
-          });
-        },
-        220,
-      );
-    }
-
-    return subscribeDjEvents((event) => {
-      if (event?.type === "syncNext") syncNext(event.deck);
-      if (event?.type === "handoffNext") handoffNext(event.deck);
-    });
-  }, [decks, librarySongs, loadSong]);
 
   if (showLanding) return <LandingPage onEnter={enterDashboard} />;
 

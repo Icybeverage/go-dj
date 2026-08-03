@@ -6,7 +6,6 @@ import {
   crossfaderWaveValue,
   filterFrequencyFromControl,
   filterControlFromFrequency,
-  handoffCrossfaderValue,
   pinchControlFromRatio,
   pitchSemitones,
 } from "../src/features/dj/math.js";
@@ -39,8 +38,6 @@ test("BPM sync produces a bounded playback rate", () => {
   assert.equal(bpmSyncRate(true, 140, 127), 127 / 140);
   assert.equal(bpmSyncRate(false, 140, 127), 1);
   assert.equal(bpmSyncRate(true, 40, 200), 2);
-  assert.equal(handoffCrossfaderValue(1), 1);
-  assert.equal(handoffCrossfaderValue(2), 0);
 });
 
 test("pitch stays a semitone control and filter mapping is reversible", () => {
