@@ -109,6 +109,37 @@ diff --git a/src/qml/qmlapplication.cpp b/src/qml/qmlapplication.cpp
 +        }
          __android_log_print(ANDROID_LOG_VERBOSE, "mixxx", "ADPF session ready");
      }
+diff --git a/src/qml/qmlapplication.h b/src/qml/qmlapplication.h
+--- a/src/qml/qmlapplication.h
++++ b/src/qml/qmlapplication.h
+@@ -15,8 +15,8 @@
+ class ControlPushButton;
+ class GuiTick;
+ class QMenuBar;
+ class VisualsManager;
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+ class QQuickWindow;
+ class APerformanceHintSession;
+ #endif
+@@ -39,7 +39,7 @@
+   public slots:
+     bool loadQml(const QString& path);
+ 
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+   private slots:
+     void slotFrameSwapped();
+     void slotWindowChanged(QQuickWindow* window);
+@@ -68,7 +68,7 @@
+     bool m_loadSucceeded;
+     QmlAutoReload m_autoReload;
+ 
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+     // The following are necessary to implement the performance manager
+     // (https://developer.android.com/ndk/reference/group/a-performance-hint)
+     // This helps the system automatically adjust performance and prevent frame
 diff --git a/src/main.cpp b/src/main.cpp
 --- a/src/main.cpp
 +++ b/src/main.cpp
