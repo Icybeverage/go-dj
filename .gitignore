@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.convex/
+convex/_generated/
+coverage/
+*.log
+__pycache__/
+*.pyc

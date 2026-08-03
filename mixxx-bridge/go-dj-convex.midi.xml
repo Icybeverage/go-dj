@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MixxxMIDIPreset mixxxVersion="2.4.0+" schemaVersion="1">
+  <info>
+    <name>Go DJ! Convex Virtual MIDI</name>
+    <author>Go DJ!</author>
+    <description>Convex command relay for the Go DJ! two-deck controls</description>
+  </info>
+  <controller id="Go DJ! Convex Virtual MIDI">
+    <scriptfiles>
+      <file functionprefix="GoDJMixxx" filename="go-dj-controller.js"/>
+    </scriptfiles>
+    <controls>
+      <control><status>0xB0</status><midino>0</midino><group>[Channel1]</group><key>play</key></control>
+      <control><status>0xB0</status><midino>2</midino><group>[Channel1]</group><key>sync_enabled</key></control>
+      <control><status>0xB0</status><midino>3</midino><group>[Channel1]</group><key>volume</key></control>
+      <control><status>0xB0</status><midino>4</midino><group>[Channel1]</group><key>cue_default</key></control>
+      <control><status>0xB0</status><midino>5</midino><group>[Channel1]</group><key>pitch_adjust</key></control>
+      <control><status>0xB0</status><midino>6</midino><group>[QuickEffectRack1_[Channel1]]</group><key>super1</key></control>
+      <control><status>0xB0</status><midino>7</midino><group>[Channel1]</group><key>playposition</key></control>
+      <control><status>0xB0</status><midino>33</midino><group>[Channel1]</group><key>keylock</key></control>
+
+      <control><status>0xB1</status><midino>0</midino><group>[Channel2]</group><key>play</key></control>
+      <control><status>0xB1</status><midino>2</midino><group>[Channel2]</group><key>sync_enabled</key></control>
+      <control><status>0xB1</status><midino>3</midino><group>[Channel2]</group><key>volume</key></control>
+      <control><status>0xB1</status><midino>4</midino><group>[Channel2]</group><key>cue_default</key></control>
+      <control><status>0xB1</status><midino>5</midino><group>[Channel2]</group><key>pitch_adjust</key></control>
+      <control><status>0xB1</status><midino>6</midino><group>[QuickEffectRack1_[Channel2]]</group><key>super1</key></control>
+      <control><status>0xB1</status><midino>7</midino><group>[Channel2]</group><key>playposition</key></control>
+      <control><status>0xB1</status><midino>33</midino><group>[Channel2]</group><key>keylock</key></control>
+
+      <control><status>0xB4</status><midino>0</midino><group>[Master]</group><key>crossfader</key></control>
+      <control><status>0xB4</status><midino>1</midino><group>[Master]</group><key>gain</key></control>
+      <control><status>0xB4</status><midino>5</midino><group>[EffectRack1_EffectUnit1]</group><key>mix</key></control>
+    </controls>
+  </controller>
+</MixxxMIDIPreset>

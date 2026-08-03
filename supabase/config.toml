@@ -1,0 +1,4 @@
+project_id = "zcahokqhmmsjpcfrxfly"
+
+[functions.jambase-outside-lands]
+verify_jwt = false
