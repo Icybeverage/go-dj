@@ -64,7 +64,10 @@ npm run dev
 ```
 
 Convex functions are deployed from the `convex/` directory with the Convex
-CLI. Set `CONVEX_URL` for the target deployment before running the live sync:
+CLI, which generates local type references as part of deployment. Set
+`CONVEX_URL` for the target deployment before running the live sync; the
+operator script uses Convex's dynamic API reference so generated files do not
+need to be committed:
 
 ```sh
 node scripts/sync-outsidelands-live.mjs

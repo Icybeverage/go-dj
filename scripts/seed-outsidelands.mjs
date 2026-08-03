@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "../convex/_generated/api.js";
+import { anyApi } from "convex/server";
 import { songs } from "../src/data/songs.js";
+
+const api = anyApi;
 
 function readConvexUrl() {
   if (process.env.CONVEX_URL) return process.env.CONVEX_URL;

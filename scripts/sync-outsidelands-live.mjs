@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "../convex/_generated/api.js";
+import { anyApi } from "convex/server";
+
+const api = anyApi;
 
 const FESTIVAL = "outside-lands-2026";
 const FESTIVAL_SOURCE_URL =
