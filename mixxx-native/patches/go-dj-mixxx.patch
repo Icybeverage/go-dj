@@ -79,7 +79,7 @@ diff --git a/src/main.cpp b/src/main.cpp
 +    qWarning() << "Go DJ Android: entering QML startup";
 +#endif
      if (!loadQml && args.getDeveloper()) {
-@@ -330,4 +334,17 @@
+@@ -330,4 +334,20 @@
      // When the last window is closed, terminate the Qt event loop.
 +#if 1
 +    // Android may temporarily lose its window while the activity sleeps.
@@ -96,6 +96,9 @@ diff --git a/src/main.cpp b/src/main.cpp
 +    });
 +#endif
  
++#if 1
++    qInfo() << "Go DJ Android: invoking runMixxx";
++#endif
      int exitCode = runMixxx(&app, args);
 diff --git a/res/qml/main.qml b/res/qml/main.qml
 index a84e747c93..e005db613f 100644
