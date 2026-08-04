@@ -2,6 +2,16 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 88b78536bc..b4fb8ae944 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
+@@ -2384,6 +2384,9 @@
+     qt_add_executable(mixxx src/main.cpp MANUAL_FINALIZATION)
++    if(QML)
++      target_compile_definitions(mixxx PRIVATE MIXXX_USE_QML)
++    endif()
+     set_property(
+       TARGET mixxx
+       PROPERTY
+         QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/packaging/android"
+     )
 @@ -2402,6 +2402,9 @@ if(QT6)
      NAME android.permission.ACCESS_NETWORK_STATE
      )
@@ -24,6 +34,19 @@ index c13b9966c6..d58fdaff2f 100644
      <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"  />
      <uses-permission android:name="android.permission.RECORD_AUDIO"  />
      <uses-permission android:name="android.permission.USB_PERMISSION"/>
+@@ -45,12 +45,5 @@
+           <meta-data
+                 android:name="android.app.background_running"
+                 android:value="true" />
+ 
+-          <meta-data
+-                android:name="android.app.splash_screen_drawable"
+-                android:value="@drawable/ic_launcher_foreground" />
+-
+-          <meta-data
+-                android:name="android.app.arguments"
+-                android:value="--new-ui --log-level debug --developer" />
+         </activity>
 @@ -69,4 +70,7 @@
      <uses-feature
          android:name="android.hardware.usb.host"
@@ -32,6 +55,142 @@ index c13b9966c6..d58fdaff2f 100644
 +        android:name="android.hardware.camera"
 +        android:required="false" />
  </manifest>
+diff --git a/src/qml/qmlapplication.cpp b/src/qml/qmlapplication.cpp
+--- a/src/qml/qmlapplication.cpp
++++ b/src/qml/qmlapplication.cpp
+@@ -29,5 +29,6 @@
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+ #include <android/api-level.h>
+ #include <android/log.h>
+ #include <android/performance_hint.h>
++#include <dlfcn.h>
+ #endif
+@@ -64,5 +65,5 @@
+           m_pAppEngine(nullptr),
+           m_loadSucceeded(false),
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+           m_perfSession(nullptr),
+ #endif
+@@ -120,6 +121,6 @@
+     if (result != SoundDeviceStatus::Ok) {
+         const int reInt = static_cast<int>(result);
+         qCritical() << "Error setting up sound devices:" << reInt;
+-#ifndef Q_OS_ANDROID
++#if !defined(Q_OS_ANDROID) && !defined(__ANDROID__)
+         exit(reInt);
+ #endif
+@@ -231,5 +232,5 @@
+                 }
+             });
+ 
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+     APerformanceHintManager* manager = APerformanceHint_getManager();
+@@ -348,5 +349,5 @@
+         return false;
+     }
+ 
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+     for (auto* item : m_pAppEngine->rootObjects()) {
+@@ -243,5 +243,12 @@
+     }
+     else {
+-        APerformanceHint_setPreferPowerEfficiency(m_perfSession, false);
++        // This API was added in Android 15 (API 35), while the other
++        // performance hint calls are available from Android 13. Resolve it
++        // at runtime so a build targeting API 35 still launches on API 34.
++        auto setPreferPowerEfficiency = reinterpret_cast<int (*)(APerformanceHintSession*, bool)>(
++                dlsym(RTLD_DEFAULT, "APerformanceHint_setPreferPowerEfficiency"));
++        if (setPreferPowerEfficiency) {
++            setPreferPowerEfficiency(m_perfSession, false);
++        }
+         __android_log_print(ANDROID_LOG_VERBOSE, "mixxx", "ADPF session ready");
+     }
+diff --git a/src/qml/qmlapplication.h b/src/qml/qmlapplication.h
+--- a/src/qml/qmlapplication.h
++++ b/src/qml/qmlapplication.h
+@@ -15,8 +15,8 @@
+ class ControlPushButton;
+ class GuiTick;
+ class QMenuBar;
+ class VisualsManager;
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+ class QQuickWindow;
+ class APerformanceHintSession;
+ #endif
+@@ -39,7 +39,7 @@
+   public slots:
+     bool loadQml(const QString& path);
+ 
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+   private slots:
+     void slotFrameSwapped();
+     void slotWindowChanged(QQuickWindow* window);
+@@ -68,7 +68,7 @@
+     bool m_loadSucceeded;
+     QmlAutoReload m_autoReload;
+ 
+-#if defined(Q_OS_ANDROID)
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
+     // The following are necessary to implement the performance manager
+     // (https://developer.android.com/ndk/reference/group/a-performance-hint)
+     // This helps the system automatically adjust performance and prevent frame
+diff --git a/src/main.cpp b/src/main.cpp
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -17,7 +17,7 @@
+ #include "coreservices.h"
+ #include "errordialoghandler.h"
+ #include "mixxxapplication.h"
+-#ifdef MIXXX_USE_QML
++#if defined(MIXXX_USE_QML) || defined(__ANDROID__)
+ #include "mixer/playermanager.h"
+ #include "qml/qmlapplication.h"
+ #include "waveform/guitick.h"
+@@ -59,13 +59,19 @@ const QString kNotifyMaxDbgTimeKey = QStringLiteral("notify_max_dbg_time");
+ constexpr int kPixmapCacheLimitAt100PercentZoom = 32 * 1024; // 32 MByte
+ 
+ int runMixxx(MixxxApplication* pApp, const CmdlineArgs& args) {
++#if !defined(__ANDROID__)
+     CmdlineArgs::Instance().parseForUserFeedback();
++#endif
+ 
+     int exitCode;
+     auto pCoreServices = std::make_shared<mixxx::CoreServices>(args, pApp);
+-#ifdef MIXXX_USE_QML
++#if defined(MIXXX_USE_QML) || defined(__ANDROID__)
+     QString mainQmlFilePath;
++#if defined(__ANDROID__)
++    bool loadQml = true;
++#else
+     bool loadQml = args.isQml();
++#endif
+     if (!loadQml && args.getDeveloper()) {
+         mixxx::skin::SkinLoader skinLoader(pCoreServices->getSettings());
+         const mixxx::skin::SkinPointer pSkin = skinLoader.getConfiguredSkin();
+@@ -327,9 +327,13 @@
+     }
+ #endif
+ 
+-    // When the last window is closed, terminate the Qt event loop.
+-    QObject::connect(&app, &MixxxApplication::lastWindowClosed, &app, &MixxxApplication::quit);
+-
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
++    // Android may temporarily lose its window while the activity sleeps.
++    app.setQuitOnLastWindowClosed(false);
++#else
++    // When the last window is closed, terminate the Qt event loop.
++    QObject::connect(&app, &MixxxApplication::lastWindowClosed, &app, &MixxxApplication::quit);
++#endif
+     int exitCode = runMixxx(&app, args);
+ 
+     qDebug() << "Mixxx shutdown complete with code" << exitCode;
+ 
 diff --git a/res/qml/main.qml b/res/qml/main.qml
 index a84e747c93..e005db613f 100644
 --- a/res/qml/main.qml
@@ -65,3 +224,137 @@ index c731ee4b27..b2e6b2f9af 100644
 +    }
 +
  }
+
+diff --git a/src/soundio/portaudioenumerator.cpp b/src/soundio/portaudioenumerator.cpp
+--- a/src/soundio/portaudioenumerator.cpp
++++ b/src/soundio/portaudioenumerator.cpp
+@@ -150,18 +150,23 @@ void PortAudioEnumerator::initialize() {
+             }
+         };
+ 
++        // Android 14's emulator audio HAL corrupts the heap in Mixxx's
++        // custom per-device Oboe registration path. Oboe's default route is
++        // stable, so leave device selection to it on API 34 and older.
++        if (android_get_device_api_level() >= 35) {
+         auto inputDevices =
+                 audioManager.callMethod<QJniArray<QJniObject>>("getDevices",
+                         "(I)[Landroid/media/AudioDeviceInfo;",
+                         GET_DEVICES_INPUTS);
+         qDebug() << "audioManager inputDevices:" << inputDevices.size();
+         parse(PaOboe_Direction::Input, inputDevices);
+
+         auto outputDevices =
+                 audioManager.callMethod<QJniArray<QJniObject>>("getDevices",
+                         "(I)[Landroid/media/AudioDeviceInfo;",
+                         GET_DEVICES_OUTPUTS);
+         qDebug() << "audioManager outputDevices:" << outputDevices.size();
+         parse(PaOboe_Direction::Output, outputDevices);
+ 
++        }
+         QJniObject PROPERTY_OUTPUT_FRAMES_PER_BUFFER =
+                 QJniObject::getStaticField<jstring>(
+                        "android/media/AudioManager",
+
+diff --git a/src/qml/qmlrecordingproxy.cpp b/src/qml/qmlrecordingproxy.cpp
+index b56ad8574e..8e525a826d 100644
+--- a/src/qml/qmlrecordingproxy.cpp
++++ b/src/qml/qmlrecordingproxy.cpp
+@@ -42,6 +42,10 @@ QmlRecordingProxy* QmlRecordingProxy::create(
+     return new QmlRecordingProxy(s_pRecordingManager, pQmlEngine);
+ }
+ 
++bool QmlRecordingProxy::prepareMp3Recording() {
++    return m_pRecordingManager && m_pRecordingManager->prepareMobileMp3Recording();
++}
++
+ void QmlRecordingProxy::slotDurationRecorded(const QString& durationText) {
+     if (m_durationText == durationText) {
+         return;
+diff --git a/src/qml/qmlrecordingproxy.h b/src/qml/qmlrecordingproxy.h
+index 976790a1c6..f63e2b0b37 100644
+--- a/src/qml/qmlrecordingproxy.h
++++ b/src/qml/qmlrecordingproxy.h
+@@ -27,6 +27,8 @@ class QmlRecordingProxy : public QObject {
+         return m_durationText;
+     }
+ 
++    Q_INVOKABLE bool prepareMp3Recording();
++
+     static inline std::shared_ptr<RecordingManager> s_pRecordingManager;
+ 
+   signals:
+diff --git a/src/recording/recordingmanager.cpp b/src/recording/recordingmanager.cpp
+index f83fe3e391..f806b698ea 100644
+--- a/src/recording/recordingmanager.cpp
++++ b/src/recording/recordingmanager.cpp
+@@ -2,8 +2,10 @@
+ 
+ #include <QDateTime>
+ #include <QDir>
++#include <QFileInfo>
+ #include <QMessageBox>
+ #include <QMutex>
++#include <QStandardPaths>
+ #include <QStorageInfo>
+ 
+ #include "control/controlpushbutton.h"
+@@ -197,6 +199,45 @@ QString& RecordingManager::getRecordingDir() {
+     return m_recordingDir;
+ }
+ 
++bool RecordingManager::prepareMobileMp3Recording() {
++    if (isRecordingActive()) {
++        return false;
++    }
++
++    const QString musicLocation =
++            QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
++    const QString appDataLocation =
++            QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
++
++    QString recordingDir;
++    if (!musicLocation.isEmpty()) {
++        recordingDir = QDir(musicLocation).filePath(QStringLiteral("Mixxx/Recordings"));
++    }
++
++    QDir directory;
++    if (recordingDir.isEmpty() || !directory.mkpath(recordingDir)) {
++        if (appDataLocation.isEmpty()) {
++            qWarning() << "Could not find a writable Android recording location";
++            return false;
++        }
++        recordingDir = QDir(appDataLocation).filePath(QStringLiteral("Recordings"));
++        if (!directory.mkpath(recordingDir)) {
++            qWarning() << "Could not create Android recording location" << recordingDir;
++            return false;
++        }
++    }
++
++    m_pConfig->set(ConfigKey(RECORDING_PREF_KEY, "Directory"),
++            ConfigValue(recordingDir));
++    m_pConfig->set(ConfigKey(RECORDING_PREF_KEY, "Encoding"),
++            ConfigValue(QStringLiteral(ENCODING_MP3)));
++    m_pConfig->set(ConfigKey(RECORDING_PREF_KEY, "FileSize"),
++            ConfigValue(QStringLiteral(SPLIT_NONE)));
++    setRecordingDir();
++
++    return !m_recordingDir.isEmpty() && QFileInfo(m_recordingDir).isDir();
++}
++
+ // Only called when recording is active.
+ void RecordingManager::slotDurationRecorded(quint64 duration) {
+     if (m_secondsRecordedSplit != duration) {
+diff --git a/src/recording/recordingmanager.h b/src/recording/recordingmanager.h
+index bd0b6b7430..b519baa9fd 100644
+--- a/src/recording/recordingmanager.h
++++ b/src/recording/recordingmanager.h
+@@ -32,6 +32,9 @@ class RecordingManager : public QObject {
+     void startRecording();
+     void stopRecording();
+     bool isRecordingActive() const;
++    // Prepare a writable Android recording folder and force the real Mixxx
++    // recording engine to use its built-in MP3 encoder.
++    bool prepareMobileMp3Recording();
+     void setRecordingDir();
+     QString& getRecordingDir();
+     // Returns the currently recording file

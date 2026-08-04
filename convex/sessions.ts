@@ -31,6 +31,22 @@ function parseArgs(argsJson: string | undefined) {
   }
 }
 
+function commandArgs(argsJson: string | undefined) {
+  const envelope = parseArgs(argsJson);
+  return envelope.args && typeof envelope.args === "object" && !Array.isArray(envelope.args)
+    ? envelope.args
+    : envelope;
+}
+
+function assertHandDeck(payload: Record<string, any>, deck: number) {
+  if (payload.handSide !== "left" && payload.handSide !== "right") return;
+  const expectedDeck = payload.handSide === "left" ? 1 : 2;
+  if (deck !== expectedDeck)
+    throw new Error(
+      `${payload.handSide} hand cannot control Deck ${deck}; expected Deck ${expectedDeck}`,
+    );
+}
+
 async function findSession(ctx: any, sessionKey: string) {
   return await ctx.db
     .query("djSessions")
@@ -114,8 +130,9 @@ export const dispatch = mutation({
     const session = await ensureSession(ctx, args.sessionKey);
     if (!session) throw new Error("Unable to create DJ session");
 
-    const payload = parseArgs(args.argsJson);
+    const payload = commandArgs(args.argsJson);
     const deckNumber = Math.round(finiteNumber(payload.deck, 0));
+    assertHandDeck(payload, deckNumber);
     const now = Date.now();
 
     if (args.requestId) {

@@ -42,16 +42,10 @@ export const GESTURE_OPTIONS = [
     detail: "Echo mix",
   },
   {
-    id: "sync",
-    label: "SYNC / NEXT",
-    pose: "Fist / thumb up",
-    detail: "BPM sync · hold for handoff",
-  },
-  {
     id: "crossfader",
     label: "CROSSFADER",
-    pose: "Two open palms",
-    detail: "A ↔ B constant-power",
+    pose: "Wave right / left",
+    detail: "A → right · B → left · 0–100%",
   },
   { id: "airhorn", label: "AIRHORN", pose: "Head nod", detail: "One-shot cue" },
 ];
@@ -62,11 +56,12 @@ export const defaultGestureOptions = Object.fromEntries(
 
 export function createGestureState() {
   return {
-    last: { pinch: 0, pitch: 0, effect: 0, sync: 0 },
+    last: { pinch: 0, pitch: 0, effect: 0 },
     values: { filter: 0.5, pitch: 0.5, effect: 0 },
     mode: "neutral",
     candidate: "neutral",
     candidateSince: 0,
-    fistHoldTimer: null,
+    waveX: null,
+    waveAccum: 0,
   };
 }

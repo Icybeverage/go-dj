@@ -32,5 +32,6 @@ git -C "${mixxx_root}" diff --quiet
 git -C "${mixxx_root}" diff --cached --quiet
 git -C "${mixxx_root}" apply --check "${patch_file}"
 cp "${script_dir}/qml/GoDjCameraSurface.qml" "${mixxx_root}/res/qml/GoDjCameraSurface.qml"
+cp "${script_dir}/qml/GoDjCameraCapture.qml" "${mixxx_root}/res/qml/GoDjCameraCapture.qml"
 git -C "${mixxx_root}" apply "${patch_file}"
 echo "Applied Go DJ! camera/control surface to Mixxx ${expected_commit}."

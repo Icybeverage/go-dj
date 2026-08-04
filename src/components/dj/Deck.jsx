@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { PitchShift } from "tone";
+import WaveSurfer from "wavesurfer.js";
 import { Icon } from "./Icons";
 import { subscribeDjEvents } from "../../features/dj/bus";
 import {
@@ -25,7 +26,6 @@ export function Deck({
   number,
   track,
   enqueue,
-  autoPlaySignal,
   syncEnabled,
   syncTargetBpm,
   onSyncChange,
@@ -38,6 +38,8 @@ export function Deck({
   const effectNodes = useRef(null);
   const spectrumFrame = useRef(null);
   const context = useRef(null);
+  const waveformContainer = useRef(null);
+  const waveSurfer = useRef(null);
   const remoteGesture = useRef({});
   const cuePoint = useRef(0);
   const playingRef = useRef(false);
@@ -93,6 +95,7 @@ export function Deck({
 
   useEffect(() => {
     if (!audio.current) return;
+    playingRef.current = false;
     audio.current.pause();
     audio.current.currentTime = 0;
     setPlaying(false);
@@ -103,12 +106,39 @@ export function Deck({
   }, [track?.url]);
 
   useEffect(() => {
-    if (!autoPlaySignal || !track?.url) return undefined;
-    const timer = window.setTimeout(() => {
-      if (!playingRef.current) start();
-    }, 180);
-    return () => window.clearTimeout(timer);
-  }, [autoPlaySignal, track?.url]);
+    const container = waveformContainer.current;
+    const media = audio.current;
+
+    waveSurfer.current?.destroy();
+    waveSurfer.current = null;
+    if (container) container.replaceChildren();
+
+    if (!container || !media || !track?.url) return undefined;
+
+    const instance = WaveSurfer.create({
+      container,
+      media,
+      url: track.url,
+      height: 56,
+      waveColor: number === 1 ? "#2e837d" : "#8150a3",
+      progressColor: number === 1 ? "#57e6da" : "#ce8aff",
+      cursorColor: "#f5f7fa",
+      cursorWidth: 1,
+      barWidth: 2,
+      barGap: 1,
+      barRadius: 2,
+      normalize: true,
+      interact: true,
+      dragToSeek: true,
+      hideScrollbar: true,
+    });
+    waveSurfer.current = instance;
+
+    return () => {
+      if (waveSurfer.current === instance) waveSurfer.current = null;
+      instance.destroy();
+    };
+  }, [number, track?.url]);
 
   useEffect(() => {
     if (filterNode.current) {
@@ -121,7 +151,7 @@ export function Deck({
 
   useEffect(() => {
     applyBpmSync(syncEnabled, syncTargetBpm);
-  }, [track?.url, syncEnabled, syncTargetBpm, pitch]);
+  }, [track?.url, syncEnabled, syncTargetBpm]);
 
   useEffect(() => {
     return () => {
@@ -137,8 +167,9 @@ export function Deck({
 
   function updatePitchProcessor() {
     if (!pitchShift.current) return;
-    const keylockCorrection = -12 * Math.log2(syncRateRef.current || 1);
-    pitchShift.current.pitch = pitchSemitones(pitch) + keylockCorrection;
+    // Tone's pitch shifter changes frequency without changing the media
+    // element's transport speed. BPM sync is handled separately below.
+    pitchShift.current.pitch = pitchSemitones(pitch);
   }
 
   function applyBpmSync(enabled = syncEnabled, targetBpm = syncTargetBpm) {
@@ -148,9 +179,11 @@ export function Deck({
     syncRateRef.current = nextRate;
     if (audio.current) {
       audio.current.playbackRate = nextRate;
-      audio.current.preservesPitch = false;
-      audio.current.mozPreservesPitch = false;
-      audio.current.webkitPreservesPitch = false;
+      // Only BPM sync (or a future explicit transport control) may change
+      // playbackRate. Keep the audio element key-locked for pitch gestures.
+      audio.current.preservesPitch = true;
+      audio.current.mozPreservesPitch = true;
+      audio.current.webkitPreservesPitch = true;
     }
     updatePitchProcessor();
     setEffectiveBpm(sourceBpm > 0 ? sourceBpm * nextRate : 0);
@@ -166,7 +199,7 @@ export function Deck({
       filterNode.current.type = filterMode;
       filterNode.current.frequency.value = filter;
       pitchShift.current = new PitchShift({
-        pitch: pitchSemitones(pitch) - 12 * Math.log2(syncRateRef.current || 1),
+        pitch: pitchSemitones(pitch),
         windowSize: 0.08,
       });
       analyser.current = context.current.createAnalyser();
@@ -287,13 +320,17 @@ export function Deck({
     });
   }
 
-  function updateFilter(value, { remote = true, mode = filterMode } = {}) {
+  function updateFilter(
+    value,
+    { remote = true, mode = filterMode, handSide } = {},
+  ) {
     const next = clamp(value, 40, 18000);
     setFilter(next);
     if (filterNode.current) filterNode.current.frequency.value = next;
     if (remote)
       enqueue("setFilter", {
         deck: number,
+        handSide,
         type: mode,
         frequency: next,
         strength: filterStrength(mode, next),
@@ -335,7 +372,7 @@ export function Deck({
       });
   }
 
-  function updatePitch(value, { remote = true } = {}) {
+  function updatePitch(value, { remote = true, handSide } = {}) {
     const next = clamp(value, 0, 100);
     const semitones = pitchSemitones(next);
     setPitch(next);
@@ -343,6 +380,7 @@ export function Deck({
     if (remote)
       enqueue("setPitch", {
         deck: number,
+        handSide,
         percent: next,
         semitones,
         keylock: true,
@@ -367,13 +405,14 @@ export function Deck({
       });
   }
 
-  function updateEffectMix(value, { remote = true } = {}) {
+  function updateEffectMix(value, { remote = true, handSide } = {}) {
     const next = clamp(value, 0, 1);
     setEffectMix(next);
     if (effectNodes.current) effectNodes.current.wet.gain.value = next;
     if (remote)
       enqueue("setEffectMix", {
         deck: number,
+        handSide,
         unit: 1,
         value: next,
         effect: "browser-delay / native Mixxx EffectUnit1 mix",
@@ -390,7 +429,7 @@ export function Deck({
 
   function updateSync(
     enabled = !syncEnabled,
-    { remote = true, targetBpmOverride = null } = {},
+    { remote = true, targetBpmOverride = null, handSide } = {},
   ) {
     const next = Boolean(enabled);
     const targetBpm = Number(targetBpmOverride ?? syncTargetBpm) || null;
@@ -400,6 +439,7 @@ export function Deck({
     if (remote)
       enqueue("setSync", {
         deck: number,
+        handSide,
         enabled: next,
         sourceBpm,
         targetBpm,
@@ -424,9 +464,32 @@ export function Deck({
     updateSync(false, { remote });
   }
 
+  function stopForHandoff() {
+    if (!audio.current) return;
+    playingRef.current = false;
+    audio.current.pause();
+    setPlaying(false);
+    void enqueue("play", {
+      deck: number,
+      playing: false,
+      mixxx: {
+        group: deckGroup(number),
+        control: "play",
+        value: 0,
+        midi: { channel: number, cc: 0, value: 0 },
+      },
+    });
+  }
+
   useEffect(() => {
     const unsubscribe = subscribeDjEvents((event) => {
       if (event?.deck && event.deck !== number) return;
+      if (
+        event?.handSide &&
+        ((event.handSide === "left" && number !== 1) ||
+          (event.handSide === "right" && number !== 2))
+      )
+        return;
       const value = clamp((event?.value || 0) * 100, 0, 100);
       const type = event?.type;
       const now = performance.now();
@@ -439,23 +502,28 @@ export function Deck({
           filterMode === "highpass"
             ? filterFrequencyFromControl(value)
             : filterFrequencyFromControl(100 - value),
-          { remote: shouldSend },
+          { remote: shouldSend, handSide: event.handSide },
         );
-      if (type === "pitch") updatePitch(value, { remote: shouldSend });
+      if (type === "pitch")
+        updatePitch(value, { remote: shouldSend, handSide: event.handSide });
       if (type === "effect")
-        updateEffectMix(value / 100, { remote: shouldSend });
-      if (type === "syncToggle") updateSync(!syncEnabled, { remote: true });
+        updateEffectMix(value / 100, {
+          remote: shouldSend,
+          handSide: event.handSide,
+        });
       if (type === "sync")
         updateSync(true, {
           remote: shouldSend,
           targetBpmOverride: event.targetBpm,
+          handSide: event.handSide,
         });
+      if (type === "handoffPause") stopForHandoff();
       if (type === "tempoKill") updatePitch(50, { remote: true });
       if (type === "resetDefaults") resetDefaults({ remote: shouldSend });
       if (shouldSend) remoteGesture.current[type] = { time: now, value };
     });
     return unsubscribe;
-  }, [number, filterMode, syncEnabled, syncTargetBpm]);
+  }, [enqueue, number, filterMode, syncEnabled, syncTargetBpm]);
 
   return (
     <section
@@ -492,15 +560,16 @@ export function Deck({
         preload="metadata"
       />
       <div className="deck-waveform">
-        <div className="spectrum-bars">
+        <div
+          ref={waveformContainer}
+          className="waveform-instance"
+          aria-label={`Deck ${number} waveform`}
+        />
+        <div className="spectrum-bars" aria-hidden="true">
           {spectrum.map((level, index) => (
             <i key={index} style={{ height: `${level}%` }} />
           ))}
         </div>
-        <div
-          className="wave-progress"
-          style={{ width: `${progress * 100}%` }}
-        />
       </div>
       <div className="time-readout">
         <span>

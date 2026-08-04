@@ -10,7 +10,6 @@ import {
   OUTSIDE_LANDS_FESTIVAL,
   outsideLandsArtists,
 } from "../data/outsidelandsArtists";
-import { emitDjEvent, subscribeDjEvents } from "../features/dj/bus";
 import { deckGroup } from "../features/dj/math";
 import { api } from "../convexApi";
 import { createCommandQueue } from "../services/convex/commands";
@@ -41,7 +40,6 @@ export function App() {
     }
   });
   const [decks, setDecks] = useState(preloadedSongs);
-  const [autoPlaySignals, setAutoPlaySignals] = useState([0, 0]);
   const [syncStates, setSyncStates] = useState([false, false]);
   const [sessionKey] = useState(getSessionKey);
   const remoteTracks = useQuery(api.tracks.search, { limit: 100, sessionKey });
@@ -51,8 +49,7 @@ export function App() {
     limit: 200,
   });
   const librarySongs = useMemo(() => {
-    if (!remoteTracks?.length) return songs;
-    const normalized = remoteTracks
+    const normalized = (remoteTracks || [])
       .map((track) => {
         const filePath = track.storageUrl || track.filePath;
         if (!filePath) return null;
@@ -68,7 +65,17 @@ export function App() {
         };
       })
       .filter(Boolean);
-    return normalized.length ? normalized : songs;
+    const byTrack = new Map(
+      normalized.map((track) => [
+        `${track.artist}`.toLowerCase() + "::" + `${track.title}`.toLowerCase(),
+        track,
+      ]),
+    );
+    songs.forEach((song) => {
+      const key = `${song.artist}`.toLowerCase() + "::" + `${song.title}`.toLowerCase();
+      if (!byTrack.has(key)) byTrack.set(key, song);
+    });
+    return [...byTrack.values()];
   }, [remoteTracks]);
   const libraryArtists = remoteFestivalArtists?.length
     ? remoteFestivalArtists
@@ -128,18 +135,6 @@ export function App() {
     [enqueue],
   );
 
-  const playSong = useCallback(
-    (index, song) => {
-      loadSong(index, song);
-      setAutoPlaySignals((current) =>
-        current.map((value, deckIndex) =>
-          deckIndex === index ? value + 1 : value,
-        ),
-      );
-    },
-    [loadSong],
-  );
-
   const uploadTrack = useCallback(
     async (file) => {
       if (!file.type.startsWith("audio/")) {
@@ -186,60 +181,6 @@ export function App() {
     });
   }, []);
 
-  useEffect(() => {
-    function nextSongFor(sourceDeck) {
-      const currentFile = decks[sourceDeck - 1]?.file;
-      const currentIndex = librarySongs.findIndex(
-        (song) => song.file === currentFile,
-      );
-      return (
-        librarySongs[
-          (currentIndex + 1 + librarySongs.length) % librarySongs.length
-        ] || librarySongs[0]
-      );
-    }
-
-    function syncNext(sourceDeck) {
-      const targetDeck = sourceDeck === 1 ? 2 : 1;
-      const next = nextSongFor(sourceDeck);
-      if (next && decks[targetDeck - 1]?.file !== next.file)
-        loadSong(targetDeck - 1, next);
-      emitDjEvent({
-        type: "sync",
-        deck: targetDeck,
-        value: 1,
-        targetBpm: next?.bpm,
-      });
-    }
-
-    function handoffNext(sourceDeck) {
-      const targetDeck = sourceDeck === 1 ? 2 : 1;
-      const next = nextSongFor(sourceDeck);
-      if (!next) return;
-      loadSong(targetDeck - 1, next);
-      setAutoPlaySignals((current) =>
-        current.map((value, index) =>
-          index === targetDeck - 1 ? value + 1 : value,
-        ),
-      );
-      window.setTimeout(
-        () =>
-          emitDjEvent({
-            type: "sync",
-            deck: targetDeck,
-            value: 1,
-            targetBpm: next.bpm,
-          }),
-        220,
-      );
-    }
-
-    return subscribeDjEvents((event) => {
-      if (event?.type === "syncNext") syncNext(event.deck);
-      if (event?.type === "handoffNext") handoffNext(event.deck);
-    });
-  }, [decks, librarySongs, loadSong]);
-
   if (showLanding) return <LandingPage onEnter={enterDashboard} />;
 
   return (
@@ -268,7 +209,6 @@ export function App() {
               number={1}
               track={decks[0]}
               enqueue={enqueue}
-              autoPlaySignal={autoPlaySignals[0]}
               syncEnabled={syncStates[0]}
               syncTargetBpm={syncStates[0] ? decks[1]?.bpm : null}
               onSyncChange={(enabled) => handleSyncChange(1, enabled)}
@@ -278,7 +218,6 @@ export function App() {
               number={2}
               track={decks[1]}
               enqueue={enqueue}
-              autoPlaySignal={autoPlaySignals[1]}
               syncEnabled={syncStates[1]}
               syncTargetBpm={syncStates[1] ? decks[0]?.bpm : null}
               onSyncChange={(enabled) => handleSyncChange(2, enabled)}
@@ -287,7 +226,7 @@ export function App() {
           <SongLibrary
             songs={librarySongs}
             festivalArtists={libraryArtists}
-            onLoad={playSong}
+            onLoad={loadSong}
             onUpload={uploadTrack}
             uploadStatus={uploadStatus}
           />

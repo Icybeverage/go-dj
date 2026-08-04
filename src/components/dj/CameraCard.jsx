@@ -6,9 +6,18 @@ import {
 } from "@mediapipe/tasks-vision";
 import { GestureGrid } from "./GestureGrid";
 import { Icon } from "./Icons";
-import { ensureAudioEngine, triggerAirhorn } from "../../features/audio/engine";
+import {
+  ensureAudioEngine,
+  preloadAirhorn,
+  triggerAirhorn,
+} from "../../features/audio/engine";
 import { emitDjEvent } from "../../features/dj/bus";
-import { clamp } from "../../features/dj/math";
+import {
+  clamp,
+  crossfaderWaveDirection,
+  crossfaderWaveValue,
+  pinchControlFromRatio,
+} from "../../features/dj/math";
 import {
   createGestureState,
   defaultGestureOptions,
@@ -28,7 +37,11 @@ export function CameraCard() {
     1: createGestureState(),
     2: createGestureState(),
   });
-  const crossfader = useRef({ last: 0, value: 0.5 });
+  const crossfader = useRef({
+    last: 0,
+    value: 0.5,
+    driverDeck: null,
+  });
   const handVisible = useRef(false);
   const headMotion = useRef({ lastNoseY: null, cooldownUntil: 0 });
   const gestureOptionsRef = useRef(defaultGestureOptions);
@@ -52,14 +65,11 @@ export function CameraCard() {
   }
 
   function resetTrackingState() {
-    Object.values(handStates.current).forEach((state) => {
-      clearTimeout(state.fistHoldTimer);
-    });
     handStates.current = {
       1: createGestureState(),
       2: createGestureState(),
     };
-    crossfader.current = { last: 0, value: 0.5 };
+    crossfader.current = { last: 0, value: 0.5, driverDeck: null };
     handVisible.current = false;
     headMotion.current = { lastNoseY: null, cooldownUntil: 0 };
   }
@@ -97,9 +107,8 @@ export function CameraCard() {
       }
       video.current.srcObject = stream;
       await video.current.play().catch(() => {});
-      ensureAudioEngine()
-        .context.resume()
-        .catch(() => {});
+      ensureAudioEngine().context.resume().catch(() => {});
+      preloadAirhorn();
       setActive(true);
     } catch (cause) {
       setError(
@@ -351,8 +360,13 @@ export function CameraCard() {
             }
 
             const now = timestamp;
-            detectedHands.forEach(({ palmY, pinchRatio, rawMode, deck }) => {
+            detectedHands.forEach(
+              ({ palmY, visualX, pinchRatio, rawMode, handSide, deck }) => {
               const state = handStates.current[deck];
+              const previousWaveX = state.waveX;
+              state.waveX = visualX;
+              const waveDelta =
+                previousWaveX === null ? 0 : visualX - previousWaveX;
               if (rawMode !== state.candidate) {
                 state.candidate = rawMode;
                 state.candidateSince = now;
@@ -361,11 +375,19 @@ export function CameraCard() {
                 now - state.candidateSince >= 120
                   ? state.candidate
                   : state.mode;
-              const pinchValue = clamp(1 - (pinchRatio - 0.18) / 0.54, 0, 1);
+              const pinchValue = pinchControlFromRatio(pinchRatio);
               const pitchValue = clamp(1 - palmY, 0, 1);
               const label = deck === 1 ? "A" : "B";
-              if (mode !== "fist" && state.mode === "fist")
-                clearTimeout(state.fistHoldTimer);
+              if (mode === "crossfader") {
+                const allowedDirection = crossfaderWaveDirection(
+                  deck,
+                  waveDelta,
+                );
+                if (allowedDirection) state.waveAccum += waveDelta;
+                else if (Math.abs(waveDelta) > 0.004) state.waveAccum = 0;
+              } else {
+                state.waveAccum = 0;
+              }
               if (mode === "pinch") {
                 state.mode = mode;
                 if (
@@ -375,14 +397,18 @@ export function CameraCard() {
                   return;
                 state.last.pinch = now;
                 setActiveGesture("filter");
+                const filterBlend =
+                  pinchValue > state.values.filter ? 0.5 : 0.28;
                 state.values.filter =
-                  state.values.filter * 0.9 + pinchValue * 0.1;
+                  state.values.filter * (1 - filterBlend) +
+                  pinchValue * filterBlend;
                 setGestureStatus(
                   `DECK ${label} · Pinch filter ${Math.round(state.values.filter * 100)}%`,
                 );
                 emitDjEvent({
                   type: "pinch",
                   value: state.values.filter,
+                  handSide,
                   deck,
                 });
               } else if (mode === "pitch") {
@@ -399,7 +425,12 @@ export function CameraCard() {
                 setGestureStatus(
                   `DECK ${label} · Two-finger pitch ${Math.round(state.values.pitch * 100)}%`,
                 );
-                emitDjEvent({ type: "pitch", value: state.values.pitch, deck });
+                emitDjEvent({
+                  type: "pitch",
+                  value: state.values.pitch,
+                  handSide,
+                  deck,
+                });
               } else if (mode === "effect") {
                 state.mode = mode;
                 if (
@@ -417,69 +448,61 @@ export function CameraCard() {
                 emitDjEvent({
                   type: "effect",
                   value: state.values.effect,
+                  handSide,
                   deck,
                 });
-              } else if (mode === "fist") {
-                if (state.mode !== "fist") {
-                  state.mode = mode;
-                  if (!gestureOptionsRef.current.sync) return;
-                  setActiveGesture("sync");
-                  setGestureStatus(`DECK ${label} · Closed fist · BPM sync`);
-                  emitDjEvent({ type: "syncNext", deck });
-                  clearTimeout(state.fistHoldTimer);
-                  state.fistHoldTimer = window.setTimeout(() => {
-                    if (!gestureOptionsRef.current.sync) return;
-                    setGestureStatus(`DECK ${label} · Fist held · handoff`);
-                    emitDjEvent({ type: "handoffNext", deck });
-                  }, 900);
-                }
-              } else if (
-                mode === "sync" &&
-                state.mode !== "sync" &&
-                now - state.last.sync > 900
-              ) {
-                state.last.sync = now;
-                state.mode = mode;
-                if (!gestureOptionsRef.current.sync) return;
-                setActiveGesture("sync");
-                setGestureStatus(`DECK ${label} · Thumbs up · BPM sync`);
-                emitDjEvent({ type: "syncToggle", deck });
               } else if (mode === "neutral" || mode === "crossfader") {
-                clearTimeout(state.fistHoldTimer);
                 state.mode = mode;
               }
-            });
+              },
+            );
 
-            const openHands = gestureOptionsRef.current.crossfader
+            const waveHands = gestureOptionsRef.current.crossfader
               ? detectedHands.filter(
-                  ({ deck }) => handStates.current[deck].mode === "crossfader",
+                  ({ deck }) =>
+                    handStates.current[deck].mode === "crossfader" &&
+                    Math.abs(handStates.current[deck].waveAccum) > 0.01,
                 )
               : [];
-            if (detectedHands.length === 2 && openHands.length === 2) {
-              if (now - crossfader.current.last > 70) {
+            if (waveHands.length) {
+              // Deck A only accepts a rightward wave; Deck B only accepts a
+              // leftward wave. This keeps both hands from fighting the fader.
+              const driver =
+                waveHands.find(
+                  ({ deck }) => deck === crossfader.current.driverDeck,
+                ) || waveHands[0];
+              crossfader.current.driverDeck = driver.deck;
+              if (now - crossfader.current.last > 45) {
                 crossfader.current.last = now;
-                const value =
-                  openHands.reduce(
-                    (sum, handData) => sum + handData.visualX,
-                    0,
-                  ) / openHands.length;
-                crossfader.current.value =
-                  crossfader.current.value * 0.72 + value * 0.28;
+                const state = handStates.current[driver.deck];
+                const delta = state.waveAccum;
+                state.waveAccum = 0;
+                crossfader.current.value = crossfaderWaveValue(
+                  crossfader.current.value,
+                  driver.deck,
+                  delta,
+                );
+                const direction = driver.deck === 1 ? "RIGHT" : "LEFT";
                 setActiveGesture("crossfader");
                 setGestureStatus(
-                  `Open palms · crossfader ${Math.round(crossfader.current.value * 100)}%`,
+                  `DECK ${driver.deck === 1 ? "A" : "B"} · WAVE ${direction} · crossfader ${Math.round(crossfader.current.value * 100)}%`,
                 );
                 emitDjEvent({
                   type: "crossfader",
                   value: crossfader.current.value,
+                  handSide: driver.handSide,
+                  deck: driver.deck,
+                  gesture: "wave",
+                  direction,
                 });
               }
+            } else {
+              crossfader.current.driverDeck = null;
             }
             if (detectedHands.length) handVisible.current = true;
             else if (handVisible.current) {
               handVisible.current = false;
               Object.values(handStates.current).forEach((state) => {
-                clearTimeout(state.fistHoldTimer);
                 state.mode = "neutral";
               });
               setActiveGesture("none");

@@ -2,13 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   bpmSyncRate,
+  crossfaderWaveDirection,
+  crossfaderWaveValue,
   filterFrequencyFromControl,
   filterControlFromFrequency,
+  pinchControlFromRatio,
   pitchSemitones,
 } from "../src/features/dj/math.js";
 import {
   deckForHand,
   handGesture,
+  normalizeHandedness,
   routeHandsToDecks,
 } from "../src/features/gestures/classifier.js";
 import {
@@ -18,15 +22,15 @@ import {
 } from "../src/features/dj/mixxx.js";
 import { createCommandQueue } from "../src/services/convex/commands.js";
 
-function points({ extended = [], thumbUp = false } = {}) {
+function points({ extended = [] } = {}) {
   const landmarks = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.6 }));
   [6, 10, 14, 18].forEach((pip, index) => {
     landmarks[pip].y = 0.4;
     landmarks[[8, 12, 16, 20][index]].y = extended.includes(index) ? 0.2 : 0.58;
   });
   landmarks[0].y = 0.6;
-  landmarks[3].y = thumbUp ? 0.35 : 0.45;
-  landmarks[4].y = thumbUp ? 0.15 : 0.55;
+  landmarks[3].y = 0.45;
+  landmarks[4].y = 0.55;
   return landmarks;
 }
 
@@ -46,9 +50,24 @@ test("pitch stays a semitone control and filter mapping is reversible", () => {
   });
 });
 
+test("pinch maps its compact active range across the full filter control", () => {
+  assert.equal(pinchControlFromRatio(0.26), 1);
+  assert.equal(pinchControlFromRatio(0.38), 0);
+  assert.equal(pinchControlFromRatio(0.32), 0.5);
+});
+
+test("directional waves give each deck a single crossfader direction", () => {
+  assert.equal(crossfaderWaveDirection(1, 0.02), 1);
+  assert.equal(crossfaderWaveDirection(1, -0.02), 0);
+  assert.equal(crossfaderWaveDirection(2, -0.02), -1);
+  assert.equal(crossfaderWaveDirection(2, 0.02), 0);
+  assert.equal(crossfaderWaveValue(0.5, 1, 0.2), 1);
+  assert.equal(crossfaderWaveValue(0.5, 2, -0.2), 0);
+});
+
 test("hand poses have distinct control modes", () => {
-  assert.equal(handGesture(points(), Infinity), "fist");
-  assert.equal(handGesture(points({ thumbUp: true }), Infinity), "sync");
+  assert.equal(handGesture(points(), Infinity), "neutral");
+  assert.equal(handGesture(points(), 0.3), "neutral");
   assert.equal(handGesture(points({ extended: [0, 1] }), Infinity), "pitch");
   assert.equal(handGesture(points({ extended: [0] }), 0.3), "pinch");
   assert.equal(handGesture(points({ extended: [0] }), Infinity), "effect");
@@ -61,8 +80,7 @@ test("hand poses have distinct control modes", () => {
 test("handedness routes left to Deck A and right to Deck B", () => {
   assert.equal(deckForHand("Left", 0.9), 1);
   assert.equal(deckForHand("Right", 0.1), 2);
-  assert.equal(deckForHand("", 0.2), 1);
-  assert.equal(deckForHand("", 0.8), 2);
+  assert.equal(deckForHand(""), null);
 
   const routed = routeHandsToDecks([
     { handSide: "right", visualX: 0.1 },
@@ -72,6 +90,21 @@ test("handedness routes left to Deck A and right to Deck B", () => {
     routed.map(({ deck }) => deck),
     [2, 1],
   );
+  assert.deepEqual(
+    routeHandsToDecks([
+      { handSide: "left", visualX: 0.1 },
+      { handSide: "left", visualX: 0.9 },
+    ]).map(({ deck }) => deck),
+    [1],
+  );
+});
+
+test("camera handedness maps physical left to Deck A and right to Deck B", () => {
+  assert.equal(normalizeHandedness("Left"), "left");
+  assert.equal(normalizeHandedness("Right"), "right");
+  assert.equal(normalizeHandedness("unknown"), "");
+  assert.equal(deckForHand(normalizeHandedness("Left")), 1);
+  assert.equal(deckForHand(normalizeHandedness("Right")), 2);
 });
 
 test("command payloads carry canonical Mixxx control names", () => {
@@ -111,4 +144,13 @@ test("track load intents enter Convex while the native bridge can defer path loa
   });
   assert.equal(calls.length, 2);
   assert.equal(calls[1].protocol, MIXXX_COMMAND_PROTOCOL);
+
+  await enqueue("setFilter", {
+    deck: 1,
+    handSide: "left",
+    frequency: 1200,
+  });
+  const gesturePayload = JSON.parse(calls[2].argsJson);
+  assert.equal(gesturePayload.args.deck, 1);
+  assert.equal(gesturePayload.args.handSide, "left");
 });

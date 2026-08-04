@@ -1,5 +1,6 @@
 export const SUPABASE_BUCKET =
   "https://zcahokqhmmsjpcfrxfly.supabase.co/storage/v1/object/public/outsidelands";
+export const AIRHORN_URL = `${SUPABASE_BUCKET}/${encodeURIComponent("Alarm Siren Sound Fx.mp3")}`;
 
 export const songs = [
   [
@@ -7,6 +8,12 @@ export const songs = [
     "family ties",
     140,
     "Baby Keem, Kendrick Lamar - family ties (Official Video).mp3",
+  ],
+  [
+    "Baby Keem × Empire Of The Sun",
+    "Baby Keem x Empire of the Sun",
+    127,
+    "Baby Keem x Empire of the Sun.mp3",
   ],
   ["Charli xcx", "Camera", 122, "Charli xcx - Camera (Official Video).mp3"],
   [

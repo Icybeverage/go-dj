@@ -13,27 +13,22 @@ export function normalizeHandedness(value) {
   return "";
 }
 
-export function deckForHand(handSide, visualX = 0.5) {
+export function deckForHand(handSide) {
   const side = normalizeHandedness(handSide);
   if (side === "left") return 1;
   if (side === "right") return 2;
-  return Number(visualX) < 0.5 ? 1 : 2;
+  // Never infer a deck from screen position: an unknown hand must not bleed
+  // into the opposite deck.
+  return null;
 }
 
 export function routeHandsToDecks(hands) {
   const used = new Set();
   return hands.slice(0, 2).reduce((routed, hand) => {
-    const preferred = deckForHand(hand.handSide, hand.visualX);
-    const alternate = preferred === 1 ? 2 : 1;
-    const deck = used.has(preferred)
-      ? used.has(alternate)
-        ? null
-        : alternate
-      : preferred;
-    if (deck) {
-      used.add(deck);
-      routed.push({ ...hand, deck });
-    }
+    const preferred = deckForHand(hand.handSide);
+    if (!preferred || used.has(preferred)) return routed;
+    used.add(preferred);
+    routed.push({ ...hand, deck: preferred });
     return routed;
   }, []);
 }
@@ -41,17 +36,11 @@ export function routeHandsToDecks(hands) {
 export function handGesture(points, pinchRatio = Infinity) {
   const fingers = fingerStates(points);
   const extended = fingers.filter(Boolean).length;
-  const thumbUp =
-    points[4].y < points[3].y - 0.04 &&
-    points[4].y < points[0].y - 0.08 &&
-    extended === 0;
   const peace = fingers[0] && fingers[1] && !fingers[2] && !fingers[3];
   const indexOnly = fingers[0] && !fingers[1] && !fingers[2] && !fingers[3];
-  if (thumbUp) return "sync";
   if (peace) return "pitch";
-  if (pinchRatio < 0.5 && extended <= 2) return "pinch";
+  if (pinchRatio < 0.5 && extended >= 1 && extended <= 2) return "pinch";
   if (indexOnly) return "effect";
   if (extended === 4) return "crossfader";
-  if (extended === 0) return "fist";
   return "neutral";
 }

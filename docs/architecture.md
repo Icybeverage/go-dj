@@ -5,12 +5,12 @@
 | Concern | System of record | Why |
 | --- | --- | --- |
 | Festival lineup, dates, billing, artist IDs | JamBase Data API | Live event metadata |
-| API-key protection and normalized HTTP endpoint | Supabase Edge Function | The browser never receives the JamBase key |
+| API-key protection and normalized HTTP endpoint | Server-side provider adapter | The browser never receives provider keys |
 | Lineup cache and refresh history | Convex `festivalArtists` and `festivalSnapshots` | Reactive UI data and auditable snapshots |
 | Universal DJ session state | Convex `djSessions`, `djDecks`, and `gestureEvents` | Realtime cross-device control surface state |
 | Generic provider catalogs | Convex `catalogs` and `catalogItems` | JamBase, playlists, and future providers share one model |
 | Playable audio metadata | Convex `tracks` | BPM, file path, source, and future analysis fields |
-| Authorized festival audio bytes | Supabase Storage | Public playback URLs for files we are licensed to use |
+| Authorized festival audio bytes | Configured object storage | Playback URLs for files we are licensed to use |
 | User-uploaded audio bytes | Convex File Storage | Session-scoped uploads from the Go DJ! library |
 | DJ control intent | Convex `mixxxCommands` | Durable command queue between browser and native sidecar |
 | Audio engine | Upstream Mixxx | Native playback, effects, sync, and mixer controls |
@@ -52,10 +52,9 @@ control.
 
 ## JamBase refresh
 
-`supabase/functions/jambase-outside-lands/index.ts` calls the JamBase v3
-`/events` feed with a fixed Outside Lands date window. It returns the raw event
-payload plus normalized performers. The key is read from the Supabase secret
-named `jambase`.
+The server-side JamBase adapter calls the JamBase v3 `/events` feed with a
+fixed Outside Lands date window. It returns the raw event payload plus
+normalized performers while keeping the provider key off the client.
 
 `convex/jambase.ts` calls that proxy and ingests the normalized records through
 `festivals.upsertCatalog`. `convex/crons.ts` runs the action every twelve hours.
@@ -69,7 +68,7 @@ requires an authorized file before a track is playable:
 
 1. Obtain an MP3 through ownership, permission, a licensed promo, or a
    redistribution-compatible license.
-2. Upload it to the `outsidelands` bucket, or use the library's Convex upload
+2. Upload it to configured object storage, or use the library's Convex upload
    control for a session-scoped personal track.
 3. Register the object in `tracks` with its storage reference and BPM.
 4. Run analysis and attach `mediaAnalyses` when available.

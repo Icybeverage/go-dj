@@ -12,32 +12,53 @@ Item {
     id: root
 
     property bool cameraEnabled: false
+    property bool cameraRequested: false
     property string convexUrl: "https://watchful-herring-241.convex.cloud"
     property bool expanded: false
-    property string sessionKey: "android-mixxx-" + Date.now() + "-" + Math.random().toString(36).slice(2)
+    property int handoffSourceDeck: 0
+    property string sessionKey: ""
     property real surfaceScale: 1.0
+    property string recordingError: ""
 
-    height: expanded ? 450 : 360
+    height: expanded ? 540 : 430
     scale: surfaceScale
-    width: expanded ? 450 : 330
+    width: expanded ? 500 : 360
     z: 1000
 
-    CameraPermission {
-        id: cameraPermission
+    Settings {
+        id: appSettings
 
-        onStatusChanged: {
-            if (status === Qt.PermissionStatus.Granted) root.cameraEnabled = true;
+        category: "GoDj"
+        property string sessionKey: ""
+    }
+
+    function initializeSession() {
+        if (!appSettings.sessionKey) {
+            appSettings.sessionKey = "android-mixxx-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+            appSettings.sync();
+        }
+        root.sessionKey = appSettings.sessionKey;
+    }
+
+    Loader {
+        id: cameraCapture
+
+        active: root.cameraRequested
+        source: "GoDjCameraCapture.qml"
+
+        onLoaded: {
+            item.output = preview;
+            item.cameraEnabled = root.cameraEnabled;
         }
     }
 
-    Camera {
-        id: performanceCamera
+    Connections {
+        target: cameraCapture.item
 
-        active: root.cameraEnabled && cameraPermission.status === Qt.PermissionStatus.Granted
-    }
-    CaptureSession {
-        camera: performanceCamera
-        videoOutput: preview
+        function onPermissionGranted() {
+            root.cameraEnabled = true;
+            if (cameraCapture.item) cameraCapture.item.cameraEnabled = true;
+        }
     }
 
     Mixxx.ControlProxy {
@@ -65,6 +86,30 @@ Item {
         key: "sync_enabled"
     }
     Mixxx.ControlProxy {
+        id: pitchA
+
+        group: "[Channel1]"
+        key: "pitch_adjust"
+    }
+    Mixxx.ControlProxy {
+        id: pitchB
+
+        group: "[Channel2]"
+        key: "pitch_adjust"
+    }
+    Mixxx.ControlProxy {
+        id: keylockA
+
+        group: "[Channel1]"
+        key: "keylock"
+    }
+    Mixxx.ControlProxy {
+        id: keylockB
+
+        group: "[Channel2]"
+        key: "keylock"
+    }
+    Mixxx.ControlProxy {
         id: crossfader
 
         group: "[Master]"
@@ -86,13 +131,25 @@ Item {
     }
 
     function ensureConvexSession() {
+        if (!root.sessionKey) return;
         postConvex("/api/native/session", {
             sessionKey: root.sessionKey,
             displayName: "Go DJ! Android Mixxx",
         });
     }
 
+    function requestCameraPermission() {
+        if (!cameraCapture.item) return;
+        if (cameraCapture.item.hasPermission()) {
+            root.cameraEnabled = true;
+            cameraCapture.item.cameraEnabled = true;
+        } else {
+            cameraCapture.item.requestPermission();
+        }
+    }
+
     function reportCommand(command, args) {
+        if (!root.sessionKey) return;
         postConvex("/api/native/dispatch", {
             sessionKey: root.sessionKey,
             command: command,
@@ -103,12 +160,128 @@ Item {
         });
     }
 
-    Component.onCompleted: root.ensureConvexSession()
+    function toggleRecording() {
+        root.recordingError = "";
+        if (recordingStatus.value > 0) {
+            recordingToggle.trigger();
+            root.reportCommand("record", { enabled: false, format: "MP3" });
+            return;
+        }
+        if (!Mixxx.Recording.prepareMp3Recording()) {
+            root.recordingError = "Recording folder unavailable";
+            return;
+        }
+        recordingToggle.trigger();
+        root.reportCommand("record", { enabled: true, format: "MP3" });
+    }
+
+    function setPitch(deck, semitones) {
+        var pitch = deck === 1 ? pitchA : pitchB;
+        var keylock = deck === 1 ? keylockA : keylockB;
+        keylock.value = 1;
+        pitch.parameter = Math.max(-3, Math.min(3, Number(semitones)));
+        root.reportCommand("setPitch", {
+            deck: deck,
+            percent: (pitch.parameter + 3) * (100 / 6),
+            semitones: pitch.parameter,
+            keylock: true,
+        });
+    }
+
+    function handoff(sourceDeck) {
+        var targetDeck = sourceDeck === 1 ? 2 : 1;
+        var targetPlay = targetDeck === 1 ? playA : playB;
+        var targetSync = targetDeck === 1 ? syncA : syncB;
+        targetSync.value = 1;
+        targetPlay.value = 1;
+        root.reportCommand("setSync", { deck: targetDeck, enabled: true });
+        root.reportCommand("play", { deck: targetDeck, playing: true });
+        root.handoffSourceDeck = sourceDeck;
+        handoffTimer.restart();
+    }
+
+    Component.onCompleted: {
+        root.initializeSession();
+        root.ensureConvexSession();
+        sessionKeepAlive.restart();
+        // Keep native pitch_adjust independent from transport rate.
+        keylockA.value = 1;
+        keylockB.value = 1;
+    }
+
     Mixxx.ControlProxy {
         id: filterB
 
         group: "[QuickEffectRack1_[Channel2]]"
         key: "super1"
+    }
+
+    Mixxx.ControlProxy {
+        id: recordingStatus
+
+        group: "[Recording]"
+        key: "status"
+    }
+    Mixxx.ControlProxy {
+        id: recordingToggle
+
+        group: "[Recording]"
+        key: "toggle_recording"
+    }
+
+    Timer {
+        id: handoffTimer
+
+        interval: 220
+        repeat: false
+
+        onTriggered: {
+            var sourceDeck = root.handoffSourceDeck;
+            if (sourceDeck !== 1 && sourceDeck !== 2) return;
+            var sourcePlay = sourceDeck === 1 ? playA : playB;
+            var crossfaderValue = sourceDeck === 1 ? 1 : -1;
+            crossfader.parameter = crossfaderValue;
+            sourcePlay.value = 0;
+            root.reportCommand("setCrossfader", {
+                value: sourceDeck === 1 ? 100 : 0,
+                reason: "handoff",
+            });
+            root.reportCommand("play", {
+                deck: sourceDeck,
+                playing: false,
+                reason: "handoff",
+            });
+            root.handoffSourceDeck = 0;
+        }
+    }
+
+    Timer {
+        id: sessionKeepAlive
+
+        interval: 4 * 60 * 1000
+        repeat: true
+
+        onTriggered: root.ensureConvexSession()
+    }
+
+    Connections {
+        target: Qt.application
+
+        function onStateChanged() {
+            if (Qt.application.state === Qt.ApplicationActive) {
+                root.ensureConvexSession();
+                sessionKeepAlive.restart();
+                return;
+            }
+
+            // Camera providers are a common source of resume crashes on
+            // Android emulators. Release the camera before the app sleeps;
+            // the user can tap ALLOW again after resume.
+            if (root.cameraEnabled) {
+                root.cameraEnabled = false;
+                if (cameraCapture.item) cameraCapture.item.cameraEnabled = false;
+            }
+        }
     }
 
     Rectangle {
@@ -145,10 +318,12 @@ Item {
                     text: root.cameraEnabled ? "STOP" : "ALLOW"
 
                     onClicked: {
-                        if (cameraPermission.status === Qt.PermissionStatus.Granted) {
+                        if (cameraCapture.item && cameraCapture.item.hasPermission()) {
                             root.cameraEnabled = !root.cameraEnabled;
+                            cameraCapture.item.cameraEnabled = root.cameraEnabled;
                         } else {
-                            cameraPermission.request();
+                            root.cameraRequested = true;
+                            Qt.callLater(root.requestCameraPermission);
                         }
                     }
                 }
@@ -177,7 +352,7 @@ Item {
 
                     anchors.fill: parent
                     fillMode: VideoOutput.PreserveAspectCrop
-                    mirror: true
+                    mirrored: true
                 }
                 Text {
                     anchors.centerIn: parent
@@ -260,6 +435,45 @@ Item {
 
             RowLayout {
                 Layout.fillWidth: true
+                spacing: 5
+
+                Text {
+                    color: "#aab6c9"
+                    font.pixelSize: 10
+                    text: "PITCH · SPEEDLOCK"
+                }
+                Slider {
+                    Layout.fillWidth: true
+                    from: -3
+                    stepSize: 0.1
+                    to: 3
+                    value: pitchA.parameter
+
+                    onMoved: root.setPitch(1, value)
+                }
+                Text {
+                    color: "#aab6c9"
+                    font.pixelSize: 10
+                    text: "A"
+                }
+                Slider {
+                    Layout.fillWidth: true
+                    from: -3
+                    stepSize: 0.1
+                    to: 3
+                    value: pitchB.parameter
+
+                    onMoved: root.setPitch(2, value)
+                }
+                Text {
+                    color: "#aab6c9"
+                    font.pixelSize: 10
+                    text: "B"
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
                 spacing: 7
 
                 Text {
@@ -324,11 +538,63 @@ Item {
                         crossfader.reset();
                         filterA.reset();
                         filterB.reset();
+                        pitchA.parameter = 0;
+                        pitchB.parameter = 0;
+                        keylockA.value = 1;
+                        keylockB.value = 1;
                         root.reportCommand("setCrossfader", { value: 50 });
                         root.reportCommand("setEffectMix", { deck: 1, value: 0 });
                         root.reportCommand("setEffectMix", { deck: 2, value: 0 });
+                        root.reportCommand("setPitch", { deck: 1, percent: 50, semitones: 0, keylock: true });
+                        root.reportCommand("setPitch", { deck: 2, percent: 50, semitones: 0, keylock: true });
                     }
                 }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 5
+
+                Button {
+                    Layout.fillWidth: true
+                    text: "HANDOFF A → B"
+
+                    onClicked: root.handoff(1)
+                }
+                Button {
+                    Layout.fillWidth: true
+                    text: "HANDOFF B → A"
+
+                    onClicked: root.handoff(2)
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Button {
+                    Layout.fillWidth: true
+                    highlighted: recordingStatus.value > 0
+                    text: recordingStatus.value > 0 ? "STOP REC" : "REC MP3"
+
+                    onClicked: root.toggleRecording()
+                }
+                Text {
+                    color: recordingStatus.value > 0 ? "#ff6b7a" : "#aab6c9"
+                    font.bold: recordingStatus.value > 0
+                    font.pixelSize: 11
+                    horizontalAlignment: Text.AlignRight
+                    text: recordingStatus.value > 0 ? Mixxx.Recording.durationText : "MP3"
+                }
+            }
+            Text {
+                Layout.fillWidth: true
+                color: "#ff9aa5"
+                elide: Text.ElideRight
+                font.pixelSize: 9
+                text: root.recordingError
+                visible: root.recordingError.length > 0
             }
         }
     }

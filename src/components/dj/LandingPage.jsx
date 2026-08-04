@@ -27,7 +27,7 @@ const TUTORIAL_STEPS = [
     icon: "camera",
     eyebrow: "04 · PERFORM",
     title: "Turn on the camera",
-    body: "Allow camera access when you are ready. Two open palms move the crossfader; a head nod fires the airhorn.",
+    body: "Allow camera access when you are ready. Wave the left hand right for Deck A or the right hand left for Deck B to move the crossfader from 0–100%; a head nod fires the airhorn.",
     cue: "You can turn the camera or each gesture off at any time.",
   },
 ];
