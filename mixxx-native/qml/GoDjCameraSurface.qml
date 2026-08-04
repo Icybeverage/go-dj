@@ -352,7 +352,7 @@ Item {
 
                     anchors.fill: parent
                     fillMode: VideoOutput.PreserveAspectCrop
-                    mirror: true
+                    mirrored: true
                 }
                 Text {
                     anchors.centerIn: parent
