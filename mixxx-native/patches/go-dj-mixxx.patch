@@ -88,27 +88,6 @@ diff --git a/src/qml/qmlapplication.cpp b/src/qml/qmlapplication.cpp
 -#if defined(Q_OS_ANDROID)
 +#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
      APerformanceHintManager* manager = APerformanceHint_getManager();
-@@ -335,4 +335,20 @@ bool QmlApplication::loadQml(const QString& path) {
-     m_pAppEngine->addImageProvider(AsyncImageProvider::kProviderName, pImageProvider);
- 
-+#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
-+    QObject::connect(
-+            m_pAppEngine.get(),
-+            &QQmlApplicationEngine::warnings,
-+            [](const QList<QQmlError>& warnings) {
-+                for (const auto& warning : warnings) {
-+                    const auto message = warning.toString().toUtf8();
-+                    __android_log_print(ANDROID_LOG_ERROR, "GoDJTrace", "QML warning: %s", message.constData());
-+                }
-+            });
-+    const auto filePath = m_mainFilePath.toUtf8();
-+    __android_log_print(ANDROID_LOG_ERROR, "GoDJTrace", "QML loading: %s", filePath.constData());
-+#endif
-     m_pAppEngine->load(path);
-+#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
-+    __android_log_print(ANDROID_LOG_ERROR, "GoDJTrace", "QML root count: %d", m_pAppEngine->rootObjects().size());
-+#endif
-     if (m_pAppEngine->rootObjects().isEmpty()) {
 @@ -348,5 +349,5 @@
          return false;
      }
@@ -129,16 +108,6 @@ diff --git a/src/qml/qmlapplication.cpp b/src/qml/qmlapplication.cpp
 +            setPreferPowerEfficiency(m_perfSession, false);
 +        }
          __android_log_print(ANDROID_LOG_VERBOSE, "mixxx", "ADPF session ready");
-     }
-@@ -215,6 +216,9 @@ QmlApplication::QmlApplication(
-     m_guiTickTimer.start(std::chrono::milliseconds(16));
- 
-     m_loadSucceeded = loadQml(m_mainFilePath);
-+#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
-+    __android_log_print(ANDROID_LOG_ERROR, "GoDJTrace", "QmlApplication: load result=%d", m_loadSucceeded);
-+#endif
-     if (!m_loadSucceeded) {
-         return;
      }
 diff --git a/src/qml/qmlapplication.h b/src/qml/qmlapplication.h
 --- a/src/qml/qmlapplication.h
@@ -174,16 +143,6 @@ diff --git a/src/qml/qmlapplication.h b/src/qml/qmlapplication.h
 diff --git a/src/main.cpp b/src/main.cpp
 --- a/src/main.cpp
 +++ b/src/main.cpp
-@@ -11,6 +11,9 @@
- #include <cstdio>
- #include <memory>
- #include <stdexcept>
-+#ifdef __ANDROID__
-+#include <android/log.h>
-+#endif
- 
- #include "config.h"
- #include "controllers/controllermanager.h"
 @@ -17,7 +17,7 @@
  #include "coreservices.h"
  #include "errordialoghandler.h"
@@ -193,90 +152,42 @@ diff --git a/src/main.cpp b/src/main.cpp
  #include "mixer/playermanager.h"
  #include "qml/qmlapplication.h"
  #include "waveform/guitick.h"
-@@ -39,6 +42,14 @@
- 
- namespace {
- 
-+void goDjAndroidTrace(const char* message) {
-+#ifdef __ANDROID__
-+    __android_log_print(ANDROID_LOG_ERROR, "GoDJTrace", "%s", message);
-+#else
-+    (void)message;
-+#endif
-+}
-+
- // Exit codes
- constexpr int kFatalErrorOnStartupExitCode = 1;
- constexpr int kParseCmdlineArgsErrorExitCode = 2;
-@@ -59,13 +70,19 @@ const QString kNotifyMaxDbgTimeKey = QStringLiteral("notify_max_dbg_time");
+@@ -59,13 +59,19 @@ const QString kNotifyMaxDbgTimeKey = QStringLiteral("notify_max_dbg_time");
  constexpr int kPixmapCacheLimitAt100PercentZoom = 32 * 1024; // 32 MByte
  
  int runMixxx(MixxxApplication* pApp, const CmdlineArgs& args) {
-+    goDjAndroidTrace("runMixxx: entered");
-+#if 0
++#if !defined(__ANDROID__)
      CmdlineArgs::Instance().parseForUserFeedback();
 +#endif
  
      int exitCode;
      auto pCoreServices = std::make_shared<mixxx::CoreServices>(args, pApp);
-+    goDjAndroidTrace("runMixxx: core services ready");
 -#ifdef MIXXX_USE_QML
 +#if defined(MIXXX_USE_QML) || defined(__ANDROID__)
      QString mainQmlFilePath;
--    bool loadQml = args.isQml();
++#if defined(__ANDROID__)
 +    bool loadQml = true;
-+    goDjAndroidTrace("runMixxx: selecting QML branch");
-+    qWarning() << "Go DJ Android: entering QML startup";
++#else
+     bool loadQml = args.isQml();
++#endif
      if (!loadQml && args.getDeveloper()) {
          mixxx::skin::SkinLoader skinLoader(pCoreServices->getSettings());
          const mixxx::skin::SkinPointer pSkin = skinLoader.getConfiguredSkin();
-@@ -209,6 +224,7 @@ Java_org_qtproject_qt_android_QtNativeAccessibility_accessibilitySupported(JNIEnv*, jobject) {
- #endif
- 
- int main(int argc, char * argv[]) {
-+    goDjAndroidTrace("main: entered");
-     Console console;
- 
-     // These need to be set early on (not sure how early) in order to trigger
-@@ -252,8 +268,10 @@
-     // Construct a list of strings based on the command line arguments
-     CmdlineArgs& args = CmdlineArgs::Instance();
-     if (!args.parse(argc, argv)) {
-+        goDjAndroidTrace("main: command-line parse failed");
-         return kParseCmdlineArgsErrorExitCode;
-     }
-+    goDjAndroidTrace("main: command-line parse complete");
- 
-     // Set a unique thread object name
-     //
-@@ -273,6 +291,7 @@
-     adjustScaleFactor(&args);
- 
-     MixxxApplication app(argc, argv);
-+    goDjAndroidTrace("main: MixxxApplication constructed");
- 
- #if defined(Q_OS_WIN)
-     // The Mixxx style is based on Qt's WindowsVista style
-@@ -326,10 +345,19 @@
+@@ -327,9 +327,13 @@
      }
  #endif
  
 -    // When the last window is closed, terminate the Qt event loop.
 -    QObject::connect(&app, &MixxxApplication::lastWindowClosed, &app, &MixxxApplication::quit);
 -
++#if defined(Q_OS_ANDROID) || defined(__ANDROID__)
 +    // Android may temporarily lose its window while the activity sleeps.
 +    app.setQuitOnLastWindowClosed(false);
-+    QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {
-+        qWarning() << "Go DJ Android: Qt aboutToQuit emitted";
-+    });
-+    QObject::connect(&app, &MixxxApplication::lastWindowClosed, []() {
-+        qWarning() << "Go DJ Android: lastWindowClosed emitted";
-+    });
-+
-+    qInfo() << "Go DJ Android: invoking runMixxx";
-+    goDjAndroidTrace("main: invoking runMixxx");
++#else
++    // When the last window is closed, terminate the Qt event loop.
++    QObject::connect(&app, &MixxxApplication::lastWindowClosed, &app, &MixxxApplication::quit);
++#endif
      int exitCode = runMixxx(&app, args);
-+    goDjAndroidTrace("main: runMixxx returned");
  
      qDebug() << "Mixxx shutdown complete with code" << exitCode;
  
